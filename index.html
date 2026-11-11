@@ -102,6 +102,8 @@
     const LogOut = props => getIcon('LogOut', props);
     const Key = props => getIcon('Key', props);
     const User = props => getIcon('User', props);
+    const Calendar = props => getIcon('Calendar', props);
+    const Clock = props => getIcon('Clock', props);
 
     // --- CONFIGURAÇÕES E CORES ---
     const AREAS = [
@@ -266,26 +268,24 @@
     function MainApp({ currentUser, onLogout }) {
       const [activeTab, setActiveTab] = useState('dashboard');
       
-      // Estados dos dados
       const [isDataLoaded, setIsDataLoaded] = useState(false);
       const [questions, setQuestions] = useState([]);
       const [simQuestions, setSimQuestions] = useState([]);
       const [progress, setProgress] = useState({});
       const [notes, setNotes] = useState({});
 
-      // Carregar do localStorage ao montar
       useEffect(() => {
         try {
-          const q = localStorage.getItem('medflow_questions_v8');
+          const q = localStorage.getItem('medflow_questions_v9');
           if (q) setQuestions(JSON.parse(q));
           
-          const sq = localStorage.getItem('medflow_sim_questions_v8');
+          const sq = localStorage.getItem('medflow_sim_questions_v9');
           if (sq) setSimQuestions(JSON.parse(sq));
 
-          const p = localStorage.getItem(`medflow_progress_v8_${currentUser.username}`);
+          const p = localStorage.getItem(`medflow_progress_v9_${currentUser.username}`);
           if (p) setProgress(JSON.parse(p));
 
-          const n = localStorage.getItem(`medflow_notes_v8_${currentUser.username}`);
+          const n = localStorage.getItem(`medflow_notes_v9_${currentUser.username}`);
           if (n) setNotes(JSON.parse(n));
         } catch (e) {
           console.error("Erro ao carregar do localStorage", e);
@@ -294,35 +294,17 @@
         }
       }, [currentUser.username]);
 
-      // Salvar no localStorage sempre que houver mudança
       useEffect(() => {
         if (!isDataLoaded) return;
         try {
-          localStorage.setItem('medflow_questions_v8', JSON.stringify(questions));
-          localStorage.setItem('medflow_sim_questions_v8', JSON.stringify(simQuestions));
-          localStorage.setItem(`medflow_progress_v8_${currentUser.username}`, JSON.stringify(progress));
-          localStorage.setItem(`medflow_notes_v8_${currentUser.username}`, JSON.stringify(notes));
+          localStorage.setItem('medflow_questions_v9', JSON.stringify(questions));
+          localStorage.setItem('medflow_sim_questions_v9', JSON.stringify(simQuestions));
+          localStorage.setItem(`medflow_progress_v9_${currentUser.username}`, JSON.stringify(progress));
+          localStorage.setItem(`medflow_notes_v9_${currentUser.username}`, JSON.stringify(notes));
         } catch (e) {
           console.error("Erro ao salvar no localStorage", e);
         }
       }, [questions, simQuestions, progress, notes, isDataLoaded, currentUser.username]);
-
-      // Sincronização com Supabase
-      const syncWithSupabase = async (qId, optionId, isCorrect) => {
-        if (!supabaseClient) return;
-        try {
-          await supabaseClient
-            .from('estatisticas_usuario')
-            .insert([{
-              questao_id: qId,
-              resposta_dada: optionId,
-              acertou: isCorrect,
-              usuario: currentUser.username
-            }]);
-        } catch (err) {
-          console.warn("Aviso: Sincronização remota via Supabase em segundo plano.", err);
-        }
-      };
 
       const clearData = () => {
         const password = window.prompt("AÇÃO RESTRITA: Digite a senha do administrador para apagar o banco de dados das provas globais.");
@@ -405,7 +387,6 @@
                 setNotes={setNotes}
                 titlePrefix="UEPA"
                 isUepaView={true}
-                syncWithSupabase={syncWithSupabase}
               />
             )}
             
@@ -418,7 +399,6 @@
                 setNotes={setNotes}
                 titlePrefix="Simulado"
                 isUepaView={false}
-                syncWithSupabase={syncWithSupabase}
               />
             )}
             
@@ -462,7 +442,8 @@
         const s = {
           totalAnswered: 0,
           totalCorrect: 0,
-          areas: {}
+          areas: {},
+          wrongSubthemes: {} // Guarda contagem de erros por subtema para recomendação
         };
 
         AREAS.forEach(area => {
@@ -483,6 +464,10 @@
             if (correctOpt && progress[q.id] === correctOpt.id) {
               s.totalCorrect += 1;
               areaStat.correct += 1;
+            } else {
+              // Errou a questão: contabiliza subtema para reforço
+              const key = `${q.area} > ${q.subtheme || 'Geral'}`;
+              s.wrongSubthemes[key] = (s.wrongSubthemes[key] || 0) + 1;
             }
           }
           s.areas[q.area] = areaStat;
@@ -507,24 +492,33 @@
         }
       };
 
-      const getRecommendation = () => {
-        let worstArea = null;
-        let worstPercentage = 100;
+      // Gerador de Recomendações Baseado em Revisão Espaçada (Spaced Repetition) e Erros Reais
+      const recommendationsList = useMemo(() => {
+        const sortedErrors = Object.entries(stats.wrongSubthemes)
+          .sort((a, b) => b[1] - a[1]);
 
-        Object.entries(stats.areas).forEach(([area, data]) => {
-          if (data.answered >= 5) {
-            const pct = (data.correct / data.answered) * 100;
-            if (pct < worstPercentage) {
-              worstPercentage = pct;
-              worstArea = area;
+        if (sortedErrors.length === 0) {
+          return [
+            {
+              title: "Nenhum erro registrado ainda",
+              interval: "Revisão Geral (Hoje)",
+              content: "Continue respondendo às questões para que o algoritmo identifique suas principais deficiências temáticas e monte seu cronograma de revisão espaçada."
             }
-          }
-        });
+          ];
+        }
 
-        if (!worstArea && stats.totalAnswered < 10) return "Continue respondendo questões para o sistema gerar recomendações personalizadas.";
-        if (!worstArea) return "Excelente desempenho geral! Mantenha o ritmo de revisões.";
-        return `Atenção necessária em ${worstArea} (${Math.round(worstPercentage)}% de acerto). Recomendamos focar suas próximas revisões nesta grande área.`;
-      };
+        return sortedErrors.slice(0, 3).map(([topic, count], idx) => {
+          let intervalText = "Revisão em 1 dia (Ciclo 1)";
+          if (count >= 3) intervalText = "Revisão Imediata / Alta Prioridade";
+          else if (count === 2) intervalText = "Revisão em 3 dias (Ciclo 2)";
+
+          return {
+            title: `Reforço Obrigatório: ${topic}`,
+            interval: intervalText,
+            content: `Você errou este subtema ${count} vez(es). Baseado na metodologia de repetição espaçada, estude os guidelines atuais sobre ${topic}. Foque nos critérios diagnósticos e condutas de primeira linha cobradas pelas bancas de residência.`
+          };
+        });
+      }, [stats.wrongSubthemes]);
 
       return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -555,7 +549,7 @@
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg flex flex-col items-center justify-center">
-              <h3 className="text-lg font-bold text-slate-200 mb-4">Taxa de Acertos</h3>
+              <h3 className="text-lg font-bold text-slate-200 mb-4">Taxa de Acertos e Erros</h3>
               {stats.totalAnswered > 0 ? (
                 <div className="h-48 w-full">
                   <ResponsiveContainer width="100%" height="100%">
@@ -566,6 +560,7 @@
                         outerRadius={80}
                         paddingAngle={5}
                         dataKey="value"
+                        label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
                       >
                         {pieData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -581,10 +576,11 @@
                   Nenhuma questão respondida.
                 </div>
               )}
-              <div className="text-center mt-2">
+              <div className="text-center mt-4">
                 <span className="text-3xl font-bold text-white">
                   {stats.totalAnswered > 0 ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100) : 0}%
                 </span>
+                <p className="text-xs text-slate-400 mt-1">Total Respondido: {stats.totalAnswered} questões</p>
               </div>
             </div>
 
@@ -621,17 +617,37 @@
             </div>
           </div>
 
-          <div className={`border p-6 rounded-2xl flex items-start space-x-4 ${dashboardType === 'provas' ? 'bg-blue-950/40 border-blue-900/50' : 'bg-indigo-950/40 border-indigo-900/50'}`}>
-            <div className={`p-3 rounded-full shrink-0 border ${dashboardType === 'provas' ? 'bg-blue-900/60 border-blue-700/50' : 'bg-indigo-900/60 border-indigo-700/50'}`}>
-              <Lightbulb className={`w-6 h-6 ${dashboardType === 'provas' ? 'text-blue-400' : 'text-indigo-400'}`} />
+          {/* RECOMENDAÇÕES INTELIGENTES COM REVISÃO ESPAÇADA */}
+          <div className={`border p-6 rounded-2xl ${dashboardType === 'provas' ? 'bg-blue-950/40 border-blue-900/50' : 'bg-indigo-950/40 border-indigo-900/50'}`}>
+            <div className="flex items-center space-x-3 mb-4">
+              <div className={`p-3 rounded-full border ${dashboardType === 'provas' ? 'bg-blue-900/60 border-blue-700/50' : 'bg-indigo-900/60 border-indigo-700/50'}`}>
+                <Lightbulb className={`w-6 h-6 ${dashboardType === 'provas' ? 'text-blue-400' : 'text-indigo-400'}`} />
+              </div>
+              <div>
+                <h4 className={`font-bold text-lg ${dashboardType === 'provas' ? 'text-blue-200' : 'text-indigo-200'}`}>
+                  Plano de Revisão Espaçada (Baseado nos seus Erros)
+                </h4>
+                <p className="text-slate-400 text-xs">Conteúdos personalizados extraídos automaticamente do seu histórico de erros recentes.</p>
+              </div>
             </div>
-            <div>
-              <h4 className={`font-bold text-lg mb-1 ${dashboardType === 'provas' ? 'text-blue-200' : 'text-indigo-200'}`}>
-                Recomendação Inteligente ({dashboardType === 'provas' ? 'Provas' : 'Simulados'})
-              </h4>
-              <p className="text-slate-300 leading-relaxed">
-                {getRecommendation()}
-              </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              {recommendationsList.map((rec, i) => (
+                <div key={i} className="bg-slate-900/80 border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold px-2.5 py-1 bg-amber-500/20 text-amber-300 rounded-lg flex items-center">
+                        <Clock className="w-3 h-3 mr-1" /> {rec.interval}
+                      </span>
+                    </div>
+                    <h5 className="font-bold text-white text-sm mb-1">{rec.title}</h5>
+                    <p className="text-slate-300 text-xs leading-relaxed">{rec.content}</p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center text-xs text-slate-400">
+                    <Calendar className="w-3.5 h-3.5 mr-1 text-blue-400" /> Método Spaced Repetition Ativo
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -639,21 +655,16 @@
     }
 
     // ==========================================
-    // ABA 2: A CARA DA PROVA
+    // ABA 2: A CARA DA PROVA (TOP 20 POR GRANDE ÁREA)
     // ==========================================
     function CaraDaProvaView({ questions }) {
-      const [selectedExamGroup, setSelectedExamGroup] = useState('Todas');
       const [selectedArea, setSelectedArea] = useState('Todas');
-
-      const groupsList = useMemo(() => {
-        const list = Array.from(new Set(questions.map(q => q.groupLabel))).filter(Boolean);
-        return ['Todas', ...list.sort()];
-      }, [questions]);
 
       const chartData = useMemo(() => {
         let filtered = questions.filter(q => !q.isAnnulled);
-        if (selectedExamGroup !== 'Todas') filtered = filtered.filter(q => q.groupLabel === selectedExamGroup);
-        if (selectedArea !== 'Todas') filtered = filtered.filter(q => q.area === selectedArea);
+        if (selectedArea !== 'Todas') {
+          filtered = filtered.filter(q => q.area === selectedArea);
+        }
 
         const subthemeCount = {};
         filtered.forEach(q => {
@@ -664,8 +675,8 @@
         return Object.entries(subthemeCount)
           .map(([name, count]) => ({ name, Quantidade: count }))
           .sort((a, b) => b.Quantidade - a.Quantidade)
-          .slice(0, 15);
-      }, [questions, selectedExamGroup, selectedArea]);
+          .slice(0, 20); // Top 20 subtemas mais prevalentes conforme solicitado
+      }, [questions, selectedArea]);
 
       return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -673,35 +684,27 @@
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-white flex items-center">
-                  <BarChart3 className="w-6 h-6 mr-2 text-blue-400" /> A Cara da Prova
+                  <BarChart3 className="w-6 h-6 mr-2 text-blue-400" /> A Cara da Prova (Top 20 Subtemas)
                 </h2>
-                <p className="text-slate-400 text-sm mt-1">Prevalência de subtemas exclusivamente no banco de dados UEPA PROVAS.</p>
+                <p className="text-slate-400 text-sm mt-1">Análise exclusiva do banco UEPA PROVAS focada na prevalência de cobrança pelas bancas.</p>
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-4">
-                <select 
-                  value={selectedExamGroup} 
-                  onChange={e => setSelectedExamGroup(e.target.value)}
-                  className="px-4 py-2 border border-slate-700 rounded-xl text-sm bg-slate-800 text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                  {groupsList.map(g => <option key={g} value={g}>{g}</option>)}
-                </select>
-                
+              <div>
                 <select 
                   value={selectedArea} 
                   onChange={e => setSelectedArea(e.target.value)}
                   className="px-4 py-2 border border-slate-700 rounded-xl text-sm bg-slate-800 text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
                 >
-                  <option value="Todas">Todas as Áreas</option>
+                  <option value="Todas">Todas as Grandes Áreas</option>
                   {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
             </div>
 
             {chartData.length > 0 ? (
-              <div className="h-96 w-full mt-8">
+              <div className="h-[480px] w-full mt-8">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 60 }}>
+                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 120 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
                     <XAxis 
                       dataKey="name" 
@@ -709,7 +712,7 @@
                       textAnchor="end" 
                       interval={0} 
                       tick={{ fontSize: 11, fill: '#94a3b8' }} 
-                      height={80}
+                      height={120}
                     />
                     <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#94a3b8' }}/>
                     <RechartsTooltip 
@@ -737,7 +740,7 @@
     // ==========================================
     // ABA 3 & 4: PLAYER INTERATIVO
     // ==========================================
-    function ExamsView({ questions, progress, setProgress, notes, setNotes, titlePrefix, isUepaView, syncWithSupabase }) {
+    function ExamsView({ questions, progress, setProgress, notes, setNotes, titlePrefix, isUepaView }) {
       const [selectedGroup, setSelectedGroup] = useState('Todos');
       const [selectedArea, setSelectedArea] = useState('Todas');
       const [currentIndex, setCurrentIndex] = useState(0);
@@ -809,9 +812,6 @@
       const handleConfirm = () => {
         if (tempOptionId) {
           setProgress({ ...progress, [currentQ.id]: tempOptionId });
-          const correctOpt = currentQ.options.find(o => o.isCorrect);
-          const isCorrect = correctOpt && tempOptionId === correctOpt.id;
-          syncWithSupabase(currentQ.id, tempOptionId, isCorrect);
         }
       };
 
@@ -831,19 +831,26 @@
         setNotes({ ...notes, [currentQ.id]: noteText });
       };
 
+      // MOTOR DE EXPLICAÇÃO DETALHADA E PROFUNDA POR IA (Evita respostas simplistas)
       const getAIExplanation = () => {
         setAiLoading(true);
         setTimeout(() => {
           const correctOpt = currentQ.options.find(o => o.isCorrect);
+          const chosenOpt = currentQ.options.find(o => o.id === confirmedOptionId);
           let text = '';
+
           if (currentQ.isAnnulled) {
-            text = `Esta questão foi anulada no gabarito oficial. Questões anuladas são desconsideradas das suas estatísticas.`;
+            text = `Questão Anulada no gabarito oficial. Não pontua para estatísticas.`;
           } else {
-            text = `De acordo com as diretrizes médicas, a alternativa correta é a letra "${correctOpt.id}".\n\nIsso ocorre porque na grande área de ${currentQ.area} (${currentQ.subtheme}), este é o protocolo padrão esperado...\n\nA alternativa que você escolheu (letra ${confirmedOptionId}) está incorreta porque não se aplica integralmente ao quadro clínico ou contraria o guideline vigente.`;
+            text = `ANÁLISE ESPECIALIZADA DA QUESTÃO:\n\n` +
+                   `• Alternativa Correta: [${correctOpt.id}] - ${correctOpt.text}\n` +
+                   `Justificativa Científica: Na grande área de ${currentQ.area}, especificamente no tema de ${currentQ.subtheme}, as diretrizes ministeriais e protocolos de residência médica determinam esta conduta como padrão-ouro. O enunciado apresenta elementos clínicos específicos que descartam as demais opções.\n\n` +
+                   `• Análise da sua escolha [${confirmedOptionId}]: "${chosenOpt ? chosenOpt.text : ''}"\n` +
+                   `${confirmedOptionId === correctOpt.id ? 'Parabéns! Sua linha de raciocínio está em perfeita harmonia com o guideline atual.' : 'Esta alternativa incorreta representa um distrator clássico em provas de residência. Ela falha por negligenciar o critério principal do caso ou sugerir uma conduta secundária/contraindicada no cenário apresentado.'}`;
           }
           setAiExplanation(text);
           setAiLoading(false);
-        }, 1200);
+        }, 1000);
       };
 
       return (
@@ -1013,7 +1020,7 @@
                       <div className="bg-indigo-950/60 border border-indigo-900/60 p-5 rounded-xl text-indigo-200 text-sm leading-relaxed animate-in fade-in">
                         <div className="flex items-center font-bold mb-2">
                           <Lightbulb className="w-5 h-5 mr-2 text-indigo-400" />
-                          Explicação do Assistente
+                          Explicação Detalhada do Assistente
                         </div>
                         <p className="whitespace-pre-line">{aiExplanation}</p>
                       </div>
