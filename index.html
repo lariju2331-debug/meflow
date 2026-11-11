@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MedFlow - Plataforma de Estudos Médicos</title>
+  
+  <!-- Tailwind CSS para estilização (Dark Mode) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM (Bibliotecas Base) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Dependências para os Gráficos (Recharts) -->
+  <script src="https://unpkg.com/prop-types@15.7.2/prop-types.min.js"></script>
+  <script src="https://unpkg.com/recharts/umd/Recharts.min.js"></script>
+  
+  <!-- Ícones (Lucide React UMD) -->
+  <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
+
+  <!-- Supabase Client JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Babel (Para rodar JSX diretamente no HTML) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* Esconder barra de rolagem mas permitir scroll */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    body {
+      background-color: #020617; /* slate-950 */
+      color: #f1f5f9; /* slate-100 */
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // --- IMPORTAÇÃO DAS BIBLIOTECAS VIA CDN ---
+    const { useState, useEffect, useMemo } = React;
+    
+    // Configuração do Supabase
+    const SUPABASE_URL = 'https://naoaeuqotcjzxagllkiz.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_9KR6IDS7LL12evXMX0cHXw_HojK1e7z';
+    const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+    // Correção robusta para acesso seguro ao Recharts em ambiente CDN/Babel standalone
+    const RechartsLib = window.Recharts || {};
+    const PieChart = RechartsLib.PieChart || (props => <div {...props} />);
+    const Pie = RechartsLib.Pie || (props => null);
+    const Cell = RechartsLib.Cell || (props => null);
+    const ResponsiveContainer = RechartsLib.ResponsiveContainer || (props => <div style={{width: '100%', height: '100%'}} {...props} />);
+    const RechartsTooltip = RechartsLib.Tooltip || (props => null);
+    const Legend = RechartsLib.Legend || (props => null);
+    const BarChart = RechartsLib.BarChart || (props => <div {...props} />);
+    const Bar = RechartsLib.Bar || (props => null);
+    const XAxis = RechartsLib.XAxis || (props => null);
+    const YAxis = RechartsLib.YAxis || (props => null);
+    const CartesianGrid = RechartsLib.CartesianGrid || (props => null);
+
+    // Tratamento seguro para os ícones do Lucide React via UMD global
+    const LucideIcons = window.lucideReact || {};
+    const getIcon = (name, props) => {
+      const IconComponent = LucideIcons[name];
+      if (IconComponent) {
+        return <IconComponent {...props} />;
+      }
+      return <span {...props}>•</span>;
+    };
+
+    const Check = props => getIcon('Check', props);
+    const X = props => getIcon('X', props);
+    const Scissors = props => getIcon('Scissors', props);
+    const ChevronRight = props => getIcon('ChevronRight', props);
+    const ChevronLeft = props => getIcon('ChevronLeft', props);
+    const ChevronsRight = props => getIcon('ChevronsRight', props);
+    const ChevronsLeft = props => getIcon('ChevronsLeft', props);
+    const Lightbulb = props => getIcon('Lightbulb', props);
+    const AlertCircle = props => getIcon('AlertCircle', props);
+    const Save = props => getIcon('Save', props);
+    const Upload = props => getIcon('Upload', props);
+    const BarChart3 = props => getIcon('BarChart3', props);
+    const Target = props => getIcon('Target', props);
+    const BookOpen = props => getIcon('BookOpen', props);
+    const FileText = props => getIcon('FileText', props);
+    const Activity = props => getIcon('Activity', props);
+    const Stethoscope = props => getIcon('Stethoscope', props);
+    const Baby = props => getIcon('Baby', props);
+    const Users = props => getIcon('Users', props);
+    const HeartPulse = props => getIcon('HeartPulse', props);
+    const Archive = props => getIcon('Archive', props);
+    const LogOut = props => getIcon('LogOut', props);
+    const Key = props => getIcon('Key', props);
+    const User = props => getIcon('User', props);
+
+    // --- CONFIGURAÇÕES E CORES ---
+    const AREAS = [
+      'Medicina da Família e Comunidade', 
+      'Clínica Médica', 
+      'Cirurgia Geral', 
+      'Ginecologia & Obstetrícia', 
+      'Pediatria'
+    ];
+
+    const AREA_COLORS = {
+      'Medicina da Família e Comunidade': '#fbbf24', 
+      'Clínica Médica': '#60a5fa', 
+      'Cirurgia Geral': '#f87171', 
+      'Ginecologia & Obstetrícia': '#a78bfa', 
+      'Pediatria': '#34d399', 
+      'Geral': '#94a3b8' 
+    };
+
+    const getAreaColor = (area) => AREA_COLORS[area] || AREA_COLORS['Geral'];
+
+    // --- COMPONENTE MÃE (GERENCIA LOGIN E APP) ---
+    function App() {
+      const [currentUser, setCurrentUser] = useState(() => {
+        try {
+          const saved = localStorage.getItem('medflow_current_user');
+          return saved ? JSON.parse(saved) : null;
+        } catch (e) { return null; }
+      });
+
+      const handleLogin = (user) => {
+        localStorage.setItem('medflow_current_user', JSON.stringify(user));
+        setCurrentUser(user);
+      };
+
+      const handleLogout = () => {
+        localStorage.removeItem('medflow_current_user');
+        setCurrentUser(null);
+      };
+
+      if (!currentUser) {
+        return <LoginView onLogin={handleLogin} />;
+      }
+
+      return <MainApp currentUser={currentUser} onLogout={handleLogout} />;
+    }
+
+    // --- TELA DE LOGIN ---
+    function LoginView({ onLogin }) {
+      const [isRegistering, setIsRegistering] = useState(false);
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [error, setError] = useState('');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        setError('');
+        
+        const userTrimmed = username.trim();
+        const passTrimmed = password.trim();
+
+        if (!userTrimmed || !passTrimmed) {
+          setError('Preencha todos os campos.');
+          return;
+        }
+
+        const usersStr = localStorage.getItem('medflow_users_db');
+        const users = usersStr ? JSON.parse(usersStr) : {};
+
+        if (isRegistering) {
+          if (users[userTrimmed]) {
+            setError('Este usuário já existe. Tente fazer login.');
+            return;
+          }
+          users[userTrimmed] = { password: passTrimmed };
+          localStorage.setItem('medflow_users_db', JSON.stringify(users));
+          onLogin({ username: userTrimmed });
+        } else {
+          if (!users[userTrimmed] || users[userTrimmed].password !== passTrimmed) {
+            setError('Usuário ou senha incorretos.');
+            return;
+          }
+          onLogin({ username: userTrimmed });
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 selection:bg-blue-500 selection:text-white">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-8 animate-in fade-in zoom-in-95 duration-300">
+            <div className="flex flex-col items-center mb-8">
+              <div className="bg-blue-600 p-4 rounded-2xl shadow-lg shadow-blue-900/40 mb-4">
+                <Activity className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-white tracking-tight">Med<span className="text-blue-400">Flow</span></h1>
+              <p className="text-slate-400 text-sm mt-2 text-center">Sua plataforma inteligente de estudos médicos</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {error && (
+                <div className="p-3 bg-red-950/60 border border-red-900 text-red-300 text-sm rounded-xl flex items-center">
+                  <AlertCircle className="w-4 h-4 mr-2 shrink-0" />
+                  {error}
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Usuário</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-slate-500" />
+                  </div>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    placeholder="Seu nome de usuário"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Senha</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Key className="h-5 w-5 text-slate-500" />
+                  </div>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    placeholder="Sua senha"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/30 mt-2"
+              >
+                {isRegistering ? 'Criar Conta e Entrar' : 'Entrar na Plataforma'}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
+                className="text-slate-400 hover:text-blue-400 text-sm font-medium transition-colors"
+              >
+                {isRegistering ? 'Já tem uma conta? Faça login' : 'Não tem conta? Cadastre-se'}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+
+    // --- COMPONENTE DO APLICATIVO PRINCIPAL ---
+    function MainApp({ currentUser, onLogout }) {
+      const [activeTab, setActiveTab] = useState('dashboard');
+      
+      // Estados dos dados
+      const [isDataLoaded, setIsDataLoaded] = useState(false);
+      const [questions, setQuestions] = useState([]);
+      const [simQuestions, setSimQuestions] = useState([]);
+      const [progress, setProgress] = useState({});
+      const [notes, setNotes] = useState({});
+
+      // Carregar do localStorage ao montar
+      useEffect(() => {
+        try {
+          const q = localStorage.getItem('medflow_questions_v8');
+          if (q) setQuestions(JSON.parse(q));
+          
+          const sq = localStorage.getItem('medflow_sim_questions_v8');
+          if (sq) setSimQuestions(JSON.parse(sq));
+
+          const p = localStorage.getItem(`medflow_progress_v8_${currentUser.username}`);
+          if (p) setProgress(JSON.parse(p));
+
+          const n = localStorage.getItem(`medflow_notes_v8_${currentUser.username}`);
+          if (n) setNotes(JSON.parse(n));
+        } catch (e) {
+          console.error("Erro ao carregar do localStorage", e);
+        } finally {
+          setIsDataLoaded(true);
+        }
+      }, [currentUser.username]);
+
+      // Salvar no localStorage sempre que houver mudança
+      useEffect(() => {
+        if (!isDataLoaded) return;
+        try {
+          localStorage.setItem('medflow_questions_v8', JSON.stringify(questions));
+          localStorage.setItem('medflow_sim_questions_v8', JSON.stringify(simQuestions));
+          localStorage.setItem(`medflow_progress_v8_${currentUser.username}`, JSON.stringify(progress));
+          localStorage.setItem(`medflow_notes_v8_${currentUser.username}`, JSON.stringify(notes));
+        } catch (e) {
+          console.error("Erro ao salvar no localStorage", e);
+        }
+      }, [questions, simQuestions, progress, notes, isDataLoaded, currentUser.username]);
+
+      // Sincronização com Supabase
+      const syncWithSupabase = async (qId, optionId, isCorrect) => {
+        if (!supabaseClient) return;
+        try {
+          await supabaseClient
+            .from('estatisticas_usuario')
+            .insert([{
+              questao_id: qId,
+              resposta_dada: optionId,
+              acertou: isCorrect,
+              usuario: currentUser.username
+            }]);
+        } catch (err) {
+          console.warn("Aviso: Sincronização remota via Supabase em segundo plano.", err);
+        }
+      };
+
+      const clearData = () => {
+        const password = window.prompt("AÇÃO RESTRITA: Digite a senha do administrador para apagar o banco de dados das provas globais.");
+        if (password === "admin") {
+          if (window.confirm('Tem certeza ABSOLUTA? Todos os simulados, provas, progresso e anotações serão apagados permanentemente.')) {
+            setQuestions([]);
+            setSimQuestions([]);
+            setProgress({});
+            setNotes({});
+            alert("Banco de dados apagado com sucesso.");
+          }
+        } else if (password !== null) {
+          alert("Senha incorreta. Apenas o administrador (detentor) pode apagar as provas do sistema.");
+        }
+      };
+
+      const clearProgress = () => {
+        if (window.confirm('Tem certeza que deseja zerar apenas o seu progresso e anotações? As provas e simulados importados serão mantidos.')) {
+          setProgress({});
+          setNotes({});
+        }
+      };
+
+      if (!isDataLoaded) {
+        return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Carregando seus dados...</div>;
+      }
+
+      return (
+        <div className="min-h-screen bg-slate-950 font-sans text-slate-100 selection:bg-blue-500 selection:text-white">
+          {/* MENU SUPERIOR */}
+          <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-md backdrop-blur-md bg-opacity-90">
+            <div className="max-w-7xl mx-auto px-4">
+              <div className="flex justify-between h-16">
+                <div className="flex items-center space-x-2 mr-4">
+                  <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-900/40">
+                    <Activity className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="font-bold text-xl text-white tracking-tight hidden sm:block">Med<span className="text-blue-400">Flow</span></span>
+                </div>
+                <div className="flex space-x-1 sm:space-x-2 items-center overflow-x-auto no-scrollbar flex-1">
+                  <TabButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<Target />} label="Dashboard" />
+                  <TabButton active={activeTab === 'cara'} onClick={() => setActiveTab('cara')} icon={<BarChart3 />} label="A Cara da Prova" />
+                  <TabButton active={activeTab === 'uepa'} onClick={() => setActiveTab('uepa')} icon={<Archive />} label="UEPA PROVAS" />
+                  <TabButton active={activeTab === 'exams'} onClick={() => setActiveTab('exams')} icon={<BookOpen />} label="Simulados" />
+                  <TabButton active={activeTab === 'upload'} onClick={() => setActiveTab('upload')} icon={<Upload />} label="Importar" />
+                </div>
+                <div className="flex items-center ml-4 space-x-4 border-l border-slate-800 pl-4">
+                  <div className="hidden md:flex flex-col text-right">
+                    <span className="text-xs text-slate-500 font-medium">Logado como</span>
+                    <span className="text-sm font-bold text-slate-200">{currentUser.username}</span>
+                  </div>
+                  <button onClick={onLogout} className="p-2 bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-xl transition-colors" title="Sair da conta">
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </nav>
+
+          {/* CONTEÚDO PRINCIPAL */}
+          <main className="max-w-6xl mx-auto px-4 py-8">
+            {activeTab === 'dashboard' && (
+              <DashboardView 
+                uepaQuestions={questions} 
+                simQuestions={simQuestions} 
+                progress={progress} 
+              />
+            )}
+            
+            {activeTab === 'cara' && (
+              <CaraDaProvaView questions={questions} />
+            )}
+            
+            {activeTab === 'uepa' && (
+              <ExamsView 
+                questions={questions} 
+                progress={progress} 
+                setProgress={setProgress} 
+                notes={notes}
+                setNotes={setNotes}
+                titlePrefix="UEPA"
+                isUepaView={true}
+                syncWithSupabase={syncWithSupabase}
+              />
+            )}
+            
+            {activeTab === 'exams' && (
+              <ExamsView 
+                questions={simQuestions} 
+                progress={progress} 
+                setProgress={setProgress} 
+                notes={notes}
+                setNotes={setNotes}
+                titlePrefix="Simulado"
+                isUepaView={false}
+                syncWithSupabase={syncWithSupabase}
+              />
+            )}
+            
+            {activeTab === 'upload' && (
+              <UploadView 
+                questions={questions} 
+                setQuestions={setQuestions} 
+                simQuestions={simQuestions}
+                setSimQuestions={setSimQuestions}
+                clearData={clearData}
+                clearProgress={clearProgress}
+              />
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    function TabButton({ active, onClick, icon, label }) {
+      return (
+        <button
+          onClick={onClick}
+          className={`flex items-center px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap
+            ${active ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-inner' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
+        >
+          {React.cloneElement(icon, { className: 'w-4 h-4 sm:mr-2' })}
+          <span className="hidden sm:inline">{label}</span>
+        </button>
+      );
+    }
+
+    // ==========================================
+    // ABA 1: DASHBOARD
+    // ==========================================
+    function DashboardView({ uepaQuestions, simQuestions, progress }) {
+      const [dashboardType, setDashboardType] = useState('provas'); 
+
+      const activeQuestions = dashboardType === 'provas' ? uepaQuestions : simQuestions;
+
+      const stats = useMemo(() => {
+        const s = {
+          totalAnswered: 0,
+          totalCorrect: 0,
+          areas: {}
+        };
+
+        AREAS.forEach(area => {
+          s.areas[area] = { total: 0, answered: 0, correct: 0 };
+        });
+
+        activeQuestions.forEach(q => {
+          if (q.isAnnulled) return;
+
+          const areaStat = s.areas[q.area] || { total: 0, answered: 0, correct: 0 };
+          areaStat.total += 1;
+
+          if (progress[q.id]) {
+            s.totalAnswered += 1;
+            areaStat.answered += 1;
+            
+            const correctOpt = q.options.find(o => o.isCorrect);
+            if (correctOpt && progress[q.id] === correctOpt.id) {
+              s.totalCorrect += 1;
+              areaStat.correct += 1;
+            }
+          }
+          s.areas[q.area] = areaStat;
+        });
+
+        return s;
+      }, [activeQuestions, progress]);
+
+      const pieData = [
+        { name: 'Acertos', value: stats.totalCorrect, color: '#34d399' },
+        { name: 'Erros', value: stats.totalAnswered - stats.totalCorrect, color: '#f87171' }
+      ];
+
+      const getAreaIcon = (area) => {
+        switch (area) {
+          case 'Medicina da Família e Comunidade': return <Users className="w-5 h-5" />;
+          case 'Clínica Médica': return <Stethoscope className="w-5 h-5" />;
+          case 'Cirurgia Geral': return <Activity className="w-5 h-5" />;
+          case 'Ginecologia & Obstetrícia': return <HeartPulse className="w-5 h-5" />;
+          case 'Pediatria': return <Baby className="w-5 h-5" />;
+          default: return <FileText className="w-5 h-5" />;
+        }
+      };
+
+      const getRecommendation = () => {
+        let worstArea = null;
+        let worstPercentage = 100;
+
+        Object.entries(stats.areas).forEach(([area, data]) => {
+          if (data.answered >= 5) {
+            const pct = (data.correct / data.answered) * 100;
+            if (pct < worstPercentage) {
+              worstPercentage = pct;
+              worstArea = area;
+            }
+          }
+        });
+
+        if (!worstArea && stats.totalAnswered < 10) return "Continue respondendo questões para o sistema gerar recomendações personalizadas.";
+        if (!worstArea) return "Excelente desempenho geral! Mantenha o ritmo de revisões.";
+        return `Atenção necessária em ${worstArea} (${Math.round(worstPercentage)}% de acerto). Recomendamos focar suas próximas revisões nesta grande área.`;
+      };
+
+      return (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          
+          <div className="flex bg-slate-900 p-1.5 rounded-2xl w-full sm:w-fit border border-slate-800 shadow-lg">
+            <button 
+              onClick={() => setDashboardType('provas')}
+              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${dashboardType === 'provas' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+            >
+              Dashboard UEPA Provas
+            </button>
+            <button 
+              onClick={() => setDashboardType('simulados')}
+              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${dashboardType === 'simulados' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+            >
+              Dashboard Simulados
+            </button>
+          </div>
+
+          <div className={`bg-gradient-to-r ${dashboardType === 'provas' ? 'from-blue-900 via-indigo-950 to-slate-900 border-blue-800/40' : 'from-indigo-900 via-purple-950 to-slate-900 border-indigo-800/40'} rounded-2xl p-8 text-white shadow-xl border`}>
+            <h1 className="text-3xl font-bold mb-2 text-blue-100">
+              {dashboardType === 'provas' ? 'Painel de Desempenho: UEPA' : 'Painel de Desempenho: Simulados'}
+            </h1>
+            <p className="text-blue-300/80">
+              {dashboardType === 'provas' ? 'Exibindo dados exclusivamente das provas da UEPA.' : 'Exibindo dados exclusivamente dos seus Simulados.'} Questões anuladas não afetam as taxas.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg flex flex-col items-center justify-center">
+              <h3 className="text-lg font-bold text-slate-200 mb-4">Taxa de Acertos</h3>
+              {stats.totalAnswered > 0 ? (
+                <div className="h-48 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff' }} />
+                      <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: '#94a3b8' }}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
+                  Nenhuma questão respondida.
+                </div>
+              )}
+              <div className="text-center mt-2">
+                <span className="text-3xl font-bold text-white">
+                  {stats.totalAnswered > 0 ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+
+            <div className="md:col-span-2 bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg">
+              <h3 className="text-lg font-bold text-slate-200 mb-6">Desempenho por Grande Área</h3>
+              <div className="space-y-5">
+                {AREAS.map(area => {
+                  const data = stats.areas[area];
+                  const pct = data.answered > 0 ? Math.round((data.correct / data.answered) * 100) : 0;
+                  return (
+                    <div key={area}>
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="flex items-center font-medium text-slate-300">
+                          <span style={{ color: getAreaColor(area) }} className="mr-2">
+                            {getAreaIcon(area)}
+                          </span>
+                          {area}
+                        </div>
+                        <div className="text-sm text-slate-400">
+                          <span className="font-bold text-white">{data.correct}</span> / {data.answered} 
+                          <span className="ml-2">({pct}%)</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                        <div 
+                          className="h-2.5 rounded-full transition-all duration-1000" 
+                          style={{ width: `${pct}%`, backgroundColor: getAreaColor(area) }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className={`border p-6 rounded-2xl flex items-start space-x-4 ${dashboardType === 'provas' ? 'bg-blue-950/40 border-blue-900/50' : 'bg-indigo-950/40 border-indigo-900/50'}`}>
+            <div className={`p-3 rounded-full shrink-0 border ${dashboardType === 'provas' ? 'bg-blue-900/60 border-blue-700/50' : 'bg-indigo-900/60 border-indigo-700/50'}`}>
+              <Lightbulb className={`w-6 h-6 ${dashboardType === 'provas' ? 'text-blue-400' : 'text-indigo-400'}`} />
+            </div>
+            <div>
+              <h4 className={`font-bold text-lg mb-1 ${dashboardType === 'provas' ? 'text-blue-200' : 'text-indigo-200'}`}>
+                Recomendação Inteligente ({dashboardType === 'provas' ? 'Provas' : 'Simulados'})
+              </h4>
+              <p className="text-slate-300 leading-relaxed">
+                {getRecommendation()}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // ABA 2: A CARA DA PROVA
+    // ==========================================
+    function CaraDaProvaView({ questions }) {
+      const [selectedExamGroup, setSelectedExamGroup] = useState('Todas');
+      const [selectedArea, setSelectedArea] = useState('Todas');
+
+      const groupsList = useMemo(() => {
+        const list = Array.from(new Set(questions.map(q => q.groupLabel))).filter(Boolean);
+        return ['Todas', ...list.sort()];
+      }, [questions]);
+
+      const chartData = useMemo(() => {
+        let filtered = questions.filter(q => !q.isAnnulled);
+        if (selectedExamGroup !== 'Todas') filtered = filtered.filter(q => q.groupLabel === selectedExamGroup);
+        if (selectedArea !== 'Todas') filtered = filtered.filter(q => q.area === selectedArea);
+
+        const subthemeCount = {};
+        filtered.forEach(q => {
+          const st = q.subtheme || 'Não Classificado';
+          subthemeCount[st] = (subthemeCount[st] || 0) + 1;
+        });
+
+        return Object.entries(subthemeCount)
+          .map(([name, count]) => ({ name, Quantidade: count }))
+          .sort((a, b) => b.Quantidade - a.Quantidade)
+          .slice(0, 15);
+      }, [questions, selectedExamGroup, selectedArea]);
+
+      return (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center">
+                  <BarChart3 className="w-6 h-6 mr-2 text-blue-400" /> A Cara da Prova
+                </h2>
+                <p className="text-slate-400 text-sm mt-1">Prevalência de subtemas exclusivamente no banco de dados UEPA PROVAS.</p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                <select 
+                  value={selectedExamGroup} 
+                  onChange={e => setSelectedExamGroup(e.target.value)}
+                  className="px-4 py-2 border border-slate-700 rounded-xl text-sm bg-slate-800 text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  {groupsList.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+                
+                <select 
+                  value={selectedArea} 
+                  onChange={e => setSelectedArea(e.target.value)}
+                  className="px-4 py-2 border border-slate-700 rounded-xl text-sm bg-slate-800 text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="Todas">Todas as Áreas</option>
+                  {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {chartData.length > 0 ? (
+              <div className="h-96 w-full mt-8">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+                    <XAxis 
+                      dataKey="name" 
+                      angle={-45} 
+                      textAnchor="end" 
+                      interval={0} 
+                      tick={{ fontSize: 11, fill: '#94a3b8' }} 
+                      height={80}
+                    />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#94a3b8' }}/>
+                    <RechartsTooltip 
+                      cursor={{fill: '#1e293b'}}
+                      contentStyle={{ backgroundColor: '#1e293b', borderRadius: '12px', border: 'none', color: '#fff' }}
+                    />
+                    <Bar dataKey="Quantidade" fill="#60a5fa" radius={[4, 4, 0, 0]}>
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={selectedArea !== 'Todas' ? getAreaColor(selectedArea) : '#60a5fa'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="py-20 text-center text-slate-500">
+                Nenhuma questão encontrada com esses filtros. Importe provas oficiais para popular os gráficos.
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // ABA 3 & 4: PLAYER INTERATIVO
+    // ==========================================
+    function ExamsView({ questions, progress, setProgress, notes, setNotes, titlePrefix, isUepaView, syncWithSupabase }) {
+      const [selectedGroup, setSelectedGroup] = useState('Todos');
+      const [selectedArea, setSelectedArea] = useState('Todas');
+      const [currentIndex, setCurrentIndex] = useState(0);
+      
+      const [tempOptionId, setTempOptionId] = useState(null);
+      const [eliminated, setEliminated] = useState({});
+      
+      const [aiExplanation, setAiExplanation] = useState('');
+      const [aiLoading, setAiLoading] = useState(false);
+      const [noteText, setNoteText] = useState('');
+
+      const groupsList = useMemo(() => {
+        const list = Array.from(new Set(questions.map(q => q.groupLabel))).filter(Boolean);
+        return ['Todos', ...list.sort()];
+      }, [questions]);
+
+      useEffect(() => {
+        if (isUepaView && selectedGroup === 'Todos' && groupsList.length > 1) {
+          setSelectedGroup(groupsList[1]);
+        }
+      }, [isUepaView, groupsList, selectedGroup]);
+
+      const currentQuestions = useMemo(() => {
+        let filtered = questions;
+        if (selectedGroup !== 'Todos') {
+          filtered = filtered.filter(q => q.groupLabel === selectedGroup);
+        }
+        if (selectedArea !== 'Todas') {
+          filtered = filtered.filter(q => q.area === selectedArea);
+        }
+        return filtered;
+      }, [questions, selectedGroup, selectedArea]);
+
+      const currentQ = currentQuestions[currentIndex];
+
+      useEffect(() => {
+        setTempOptionId(null);
+        setEliminated({});
+        setAiExplanation('');
+        if (currentQ) {
+          setNoteText(notes[currentQ.id] || '');
+        }
+      }, [currentIndex, currentQ, notes]);
+
+      if (!questions.length) {
+        return (
+          <div className="text-center py-20 bg-slate-900 rounded-2xl border border-slate-800">
+            <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-slate-300">Nenhum item disponível nesta aba</h2>
+            <p className="text-slate-500 mt-2">Vá até a aba "Importar" e envie questões para esta seção.</p>
+          </div>
+        );
+      }
+
+      if (!currentQ && currentQuestions.length === 0) {
+        return (
+          <div className="text-center py-20 bg-slate-900 rounded-2xl border border-slate-800">
+            <h2 className="text-xl font-bold text-slate-300">Nenhuma questão para este filtro</h2>
+            <button onClick={() => { setSelectedGroup('Todos'); setSelectedArea('Todas'); }} className="mt-4 text-blue-400">Limpar Filtros</button>
+          </div>
+        );
+      }
+
+      if (!currentQ) return null;
+
+      const isConfirmed = !!progress[currentQ.id];
+      const confirmedOptionId = progress[currentQ.id];
+
+      const handleConfirm = () => {
+        if (tempOptionId) {
+          setProgress({ ...progress, [currentQ.id]: tempOptionId });
+          const correctOpt = currentQ.options.find(o => o.isCorrect);
+          const isCorrect = correctOpt && tempOptionId === correctOpt.id;
+          syncWithSupabase(currentQ.id, tempOptionId, isCorrect);
+        }
+      };
+
+      const toggleEliminate = (e, optId) => {
+        e.stopPropagation();
+        setEliminated(prev => ({ ...prev, [optId]: !prev[optId] }));
+      };
+
+      const jumpIndex = (amount) => {
+        let newIndex = currentIndex + amount;
+        if (newIndex < 0) newIndex = 0;
+        if (newIndex >= currentQuestions.length) newIndex = currentQuestions.length - 1;
+        setCurrentIndex(newIndex);
+      };
+
+      const saveNote = () => {
+        setNotes({ ...notes, [currentQ.id]: noteText });
+      };
+
+      const getAIExplanation = () => {
+        setAiLoading(true);
+        setTimeout(() => {
+          const correctOpt = currentQ.options.find(o => o.isCorrect);
+          let text = '';
+          if (currentQ.isAnnulled) {
+            text = `Esta questão foi anulada no gabarito oficial. Questões anuladas são desconsideradas das suas estatísticas.`;
+          } else {
+            text = `De acordo com as diretrizes médicas, a alternativa correta é a letra "${correctOpt.id}".\n\nIsso ocorre porque na grande área de ${currentQ.area} (${currentQ.subtheme}), este é o protocolo padrão esperado...\n\nA alternativa que você escolheu (letra ${confirmedOptionId}) está incorreta porque não se aplica integralmente ao quadro clínico ou contraria o guideline vigente.`;
+          }
+          setAiExplanation(text);
+          setAiLoading(false);
+        }, 1200);
+      };
+
+      return (
+        <div className="max-w-4xl mx-auto animate-in fade-in duration-300">
+          <div className="bg-slate-900 p-4 rounded-t-2xl border border-slate-800 border-b-0 flex flex-col md:flex-row justify-between items-center gap-4">
+            
+            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+              <select 
+                value={selectedGroup} 
+                onChange={e => { setSelectedGroup(e.target.value); setCurrentIndex(0); }}
+                className="px-4 py-2 border border-slate-700 rounded-xl text-sm font-medium bg-slate-800 text-slate-200 outline-none"
+              >
+                <option value="Todos">Todas as Provas</option>
+                {groupsList.filter(g => g !== 'Todos').map(g => <option key={g} value={g}>{titlePrefix}: {g}</option>)}
+              </select>
+
+              <select 
+                value={selectedArea} 
+                onChange={e => { setSelectedArea(e.target.value); setCurrentIndex(0); }}
+                className="px-4 py-2 border border-slate-700 rounded-xl text-sm font-medium bg-slate-800 text-slate-200 outline-none"
+              >
+                <option value="Todas">Todas as Áreas</option>
+                {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+
+            <div className="flex items-center space-x-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700">
+              <button onClick={() => jumpIndex(-10)} disabled={currentIndex === 0} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 disabled:opacity-30" title="Voltar 10">
+                <ChevronsLeft className="w-5 h-5" />
+              </button>
+              <button onClick={() => jumpIndex(-1)} disabled={currentIndex === 0} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-300 disabled:opacity-30" title="Anterior">
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              
+              <span className="px-3 font-semibold text-sm text-slate-200 whitespace-nowrap">
+                {currentIndex + 1} / {currentQuestions.length}
+              </span>
+              
+              <button onClick={() => jumpIndex(1)} disabled={currentIndex === currentQuestions.length - 1} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-300 disabled:opacity-30" title="Próxima">
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              <button onClick={() => jumpIndex(10)} disabled={currentIndex === currentQuestions.length - 1} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 disabled:opacity-30" title="Avançar 10">
+                <ChevronsRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 p-6 md:p-10 rounded-b-2xl border border-slate-800 shadow-xl relative">
+            <div className="min-h-[400px]">
+              <div className="flex items-center space-x-3 mb-6">
+                <span className="px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm" style={{ backgroundColor: getAreaColor(currentQ.area) }}>
+                  {currentQ.area}
+                </span>
+                <span className="text-slate-400 text-sm font-medium">{currentQ.subtheme}</span>
+                {currentQ.groupLabel && (
+                   <span className="text-slate-500 text-sm font-medium border-l border-slate-700 pl-3">
+                     {currentQ.groupLabel}
+                   </span>
+                )}
+              </div>
+
+              <p className="text-lg text-slate-100 leading-relaxed mb-8 font-medium whitespace-pre-line">
+                {currentQ.text}
+              </p>
+
+              <div className="space-y-3">
+                {currentQ.options.map((opt) => {
+                  const letter = opt.id;
+                  const isEliminated = eliminated[opt.id];
+                  let btnClass = "relative w-full text-left p-4 rounded-xl border transition-all flex items-start group ";
+                  
+                  if (currentQ.isAnnulled) {
+                    btnClass += "border-slate-800 bg-slate-950 opacity-50 cursor-not-allowed";
+                  } else if (isConfirmed) {
+                    if (opt.isCorrect) btnClass += "bg-emerald-950/40 border-emerald-500/80 text-emerald-200";
+                    else if (confirmedOptionId === opt.id) btnClass += "bg-red-950/40 border-red-500/80 text-red-200";
+                    else btnClass += "border-slate-800 opacity-40 bg-slate-950 text-slate-500";
+                  } else {
+                    if (isEliminated) btnClass += "border-slate-800 bg-slate-950 text-slate-600";
+                    else if (tempOptionId === opt.id) btnClass += "border-blue-500 bg-blue-950/30 text-blue-200 shadow-md";
+                    else btnClass += "border-slate-800 bg-slate-800/40 hover:border-blue-500/50 hover:bg-slate-800 text-slate-300";
+                  }
+
+                  return (
+                    <button
+                      key={opt.id}
+                      disabled={isConfirmed || currentQ.isAnnulled}
+                      onClick={() => !isEliminated && setTempOptionId(opt.id)}
+                      className={btnClass}
+                    >
+                      <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold mr-4 transition-colors ${
+                        isConfirmed && opt.isCorrect ? 'bg-emerald-600 text-white' : 
+                        isConfirmed && confirmedOptionId === opt.id ? 'bg-red-600 text-white' :
+                        tempOptionId === opt.id ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'
+                      }`}>
+                        {letter}
+                      </div>
+                      
+                      <span className={`flex-1 pt-1 transition-all ${isEliminated ? 'line-through opacity-50' : ''}`}>
+                        {isEliminated && <span className="inline-block mr-2 opacity-50">—</span>}
+                        {opt.text}
+                      </span>
+
+                      {!isConfirmed && !currentQ.isAnnulled && (
+                        <div 
+                          onClick={(e) => toggleEliminate(e, opt.id)}
+                          className={`shrink-0 ml-2 p-2 rounded-full transition-colors ${isEliminated ? 'bg-slate-700 text-white' : 'text-slate-500 hover:bg-slate-700 hover:text-slate-200'}`}
+                          title={isEliminated ? "Restaurar" : "Descartar"}
+                        >
+                          <Scissors className="w-4 h-4" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-slate-800 flex justify-between items-center">
+                {!isConfirmed && !currentQ.isAnnulled ? (
+                  <button 
+                    onClick={handleConfirm}
+                    disabled={!tempOptionId}
+                    className="ml-auto flex items-center bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-lg shadow-blue-900/30"
+                  >
+                    <Check className="w-5 h-5 mr-2" />
+                    Confirmar Resposta
+                  </button>
+                ) : (
+                  <div className="w-full space-y-4 animate-in slide-in-from-bottom-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-950 p-4 rounded-xl border border-slate-800">
+                      <div className="flex items-center mb-4 sm:mb-0">
+                        {currentQ.isAnnulled ? (
+                          <span className="flex items-center text-slate-400 font-bold">
+                            <AlertCircle className="w-5 h-5 mr-2" /> Questão Anulada
+                          </span>
+                        ) : currentQ.options.find(o => o.id === confirmedOptionId)?.isCorrect ? (
+                          <span className="flex items-center text-emerald-400 font-bold">
+                            <Check className="w-5 h-5 mr-2" /> Acertou!
+                          </span>
+                        ) : (
+                          <span className="flex items-center text-red-400 font-bold">
+                            <X className="w-5 h-5 mr-2" /> Errou.
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button 
+                          onClick={getAIExplanation}
+                          disabled={aiLoading}
+                          className="flex items-center justify-center bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-500 transition-colors text-sm shadow-md disabled:opacity-70"
+                        >
+                          <Lightbulb className="w-4 h-4 mr-2" />
+                          {aiLoading ? 'Pensando...' : 'Explicar com IA'}
+                        </button>
+                        <button 
+                          onClick={() => jumpIndex(1)}
+                          disabled={currentIndex === currentQuestions.length - 1}
+                          className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-blue-500 transition-colors text-sm shadow-md disabled:opacity-40"
+                        >
+                          Seguinte <ChevronRight className="w-4 h-4 ml-1" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {aiExplanation && (
+                      <div className="bg-indigo-950/60 border border-indigo-900/60 p-5 rounded-xl text-indigo-200 text-sm leading-relaxed animate-in fade-in">
+                        <div className="flex items-center font-bold mb-2">
+                          <Lightbulb className="w-5 h-5 mr-2 text-indigo-400" />
+                          Explicação do Assistente
+                        </div>
+                        <p className="whitespace-pre-line">{aiExplanation}</p>
+                      </div>
+                    )}
+
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 shadow-sm">
+                      <h4 className="text-sm font-bold text-slate-300 mb-2 flex items-center">
+                        <FileText className="w-4 h-4 mr-2" /> Minhas Anotações
+                      </h4>
+                      <textarea
+                        value={noteText}
+                        onChange={(e) => setNoteText(e.target.value)}
+                        placeholder="Escreva suas anotações aqui..."
+                        className="w-full min-h-[90px] p-3 text-sm border border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-900 text-slate-200 resize-y"
+                      />
+                      <div className="flex justify-end mt-2">
+                        <button onClick={saveNote} className="flex items-center text-sm font-medium text-blue-400 hover:text-blue-300">
+                          <Save className="w-4 h-4 mr-1" /> Salvar Anotação
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // ABA 5: IMPORTAÇÃO EM LOTE
+    // ==========================================
+    function UploadView({ questions, setQuestions, simQuestions, setSimQuestions, clearData, clearProgress }) {
+      const [bulkText, setBulkText] = useState('');
+      
+      const [examYear, setExamYear] = useState('2026');
+      const [simName, setSimName] = useState('Simulado Integrado');
+      const [simNumber, setSimNumber] = useState('1');
+      const [errorMsg, setErrorMsg] = useState('');
+
+      const parseQuestions = (text, defaultExam, defaultYear, isSim = false, groupLabel = '') => {
+        const lines = text.split('\n').filter(line => line.trim() !== '');
+        return lines.map((line, index) => {
+          const parts = line.split(';');
+          if (parts.length < 9) {
+            throw new Error(`A linha ${index + 1} não possui as 9 colunas exigidas.`);
+          }
+
+          let area = parts[0].trim();
+          const areaUpper = area.toUpperCase();
+          if (areaUpper.includes('FAMÍLIA') || areaUpper.includes('FAMILIA') || areaUpper === 'MFC' || areaUpper.includes('PREVENTIVA')) {
+            area = 'Medicina da Família e Comunidade';
+          } else if (areaUpper.includes('CIRURGIA')) {
+            area = 'Cirurgia Geral';
+          } else if (areaUpper.includes('GINECOLOGIA') || areaUpper === 'GO' || areaUpper.includes('OBSTETR')) {
+            area = 'Ginecologia & Obstetrícia';
+          } else if (areaUpper.includes('CLÍNICA') || areaUpper.includes('CLINICA')) {
+            area = 'Clínica Médica';
+          } else if (areaUpper.includes('PEDIATRIA') || areaUpper === 'PED') {
+            area = 'Pediatria';
+          }
+
+          const subtheme = parts[1].trim();
+          const textContent = parts[2].trim();
+          const altA = parts[3].trim();
+          const altB = parts[4].trim();
+          const altC = parts[5].trim();
+          const altD = parts[6].trim();
+          const altE = parts[7].trim();
+          
+          const gabarito = parts[parts.length - 1]?.trim() || ''; 
+          const gabaritoFormatado = gabarito.toUpperCase();
+          const isAnnulled = gabaritoFormatado === 'ANULADA' || gabaritoFormatado === 'NULA' || gabaritoFormatado === '-' || gabaritoFormatado === '';
+
+          const options = [
+            { id: 'A', text: altA, isCorrect: gabaritoFormatado === 'A' },
+            { id: 'B', text: altB, isCorrect: gabaritoFormatado === 'B' },
+            { id: 'C', text: altC, isCorrect: gabaritoFormatado === 'C' },
+            { id: 'D', text: altD, isCorrect: gabaritoFormatado === 'D' },
+            { id: 'E', text: altE, isCorrect: gabaritoFormatado === 'E' },
+          ];
+
+          return {
+            id: `q_${isSim ? 'sim' : 'uepa'}_${Date.now()}_${index}`,
+            exam: defaultExam,
+            year: parseInt(defaultYear) || 2026,
+            groupLabel: groupLabel || `${defaultYear}`,
+            area,
+            subtheme: subtheme || 'Geral',
+            text: textContent,
+            isAnnulled,
+            options
+          };
+        });
+      };
+
+      const handleImportUepa = () => {
+        setErrorMsg('');
+        if (!bulkText.trim()) return;
+        try {
+          const label = examYear.toString();
+          const parsed = parseQuestions(bulkText, 'UEPA', examYear, false, label);
+          setQuestions([...questions, ...parsed]);
+          setBulkText('');
+          alert(`${parsed.length} questões importadas com sucesso para a aba UEPA PROVAS!`);
+        } catch (err) {
+          setErrorMsg(err.message);
+        }
+      };
+
+      const handleImportSimulado = () => {
+        setErrorMsg('');
+        if (!bulkText.trim()) return;
+        try {
+          const groupLabel = `${simName} #${simNumber}`;
+          const parsed = parseQuestions(bulkText, simName, new Date().getFullYear(), true, groupLabel);
+          setSimQuestions([...simQuestions, ...parsed]);
+          setBulkText('');
+          alert(`${parsed.length} questões importadas com sucesso para a aba Simulados!`);
+        } catch (err) {
+          setErrorMsg(err.message);
+        }
+      };
+
+      return (
+        <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-300">
+          <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800 shadow-xl">
+            <div className="flex items-center mb-6">
+              <div className="bg-indigo-600/20 p-3 rounded-2xl mr-4 border border-indigo-500/30">
+                <Upload className="w-6 h-6 text-indigo-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white">Central de Importação</h2>
+                <p className="text-slate-400 text-sm mt-1">Cole o bloco de questões (9 colunas) e escolha o destino exato.</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-800 rounded-xl p-6 mb-6">
+              <p className="text-sm font-medium text-slate-300 mb-2">Padrão Obrigatório (9 Colunas):</p>
+              <code className="block bg-slate-900 p-3 rounded-lg text-slate-300 text-xs font-mono overflow-x-auto border border-slate-800">
+                Área; Subtema; Enunciado da questão; Alt A; Alt B; Alt C; Alt D; Alt E; Gabarito (A/B/C/D/E ou Anulada)
+              </code>
+            </div>
+
+            <textarea 
+              className="w-full h-52 p-4 border border-slate-800 rounded-xl font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-slate-950 text-slate-200 resize-y mb-6"
+              placeholder="Cole as questões aqui..."
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+            />
+
+            {errorMsg && (
+              <div className="mb-6 p-3 bg-red-950/60 border border-red-900 text-red-300 text-sm rounded-xl flex items-center">
+                <AlertCircle className="w-4 h-4 mr-2 shrink-0" />
+                {errorMsg}
+              </div>
+            )}
+
+            {/* DESTINOS SEPARADOS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-800">
+              
+              <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 flex flex-col justify-between">
+                <div>
+                  <h3 className="font-bold text-white mb-3 flex items-center text-sm">
+                    <Archive className="w-4 h-4 mr-2 text-blue-400" /> Destino: UEPA PROVAS
+                  </h3>
+                  <div className="mb-4">
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Ano da Prova UEPA</label>
+                    <input 
+                      type="number" 
+                      value={examYear}
+                      onChange={e => setExamYear(e.target.value)}
+                      placeholder="Ano (Ex: 2026)"
+                      className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 outline-none"
+                    />
+                  </div>
+                </div>
+                <button 
+                  onClick={handleImportUepa}
+                  className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-500 transition-colors text-sm shadow-lg shadow-blue-900/30"
+                >
+                  Importar para UEPA
+                </button>
+              </div>
+
+              <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 flex flex-col justify-between">
+                <div>
+                  <h3 className="font-bold text-white mb-3 flex items-center text-sm">
+                    <BookOpen className="w-4 h-4 mr-2 text-indigo-400" /> Destino: Simulados
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Nome</label>
+                      <input 
+                        type="text" 
+                        value={simName}
+                        onChange={e => setSimName(e.target.value)}
+                        placeholder="Ex: Simulado"
+                        className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Número</label>
+                      <input 
+                        type="text" 
+                        value={simNumber}
+                        onChange={e => setSimNumber(e.target.value)}
+                        placeholder="Ex: 1"
+                        className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleImportSimulado}
+                  className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl hover:bg-indigo-500 transition-colors text-sm shadow-lg shadow-indigo-900/30"
+                >
+                  Importar para Simulados
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+          <div className="bg-slate-900 p-6 rounded-2xl border border-red-950 shadow-xl mt-8">
+            <h3 className="text-lg font-bold text-red-400 mb-4">Gerenciamento de Dados</h3>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button onClick={clearProgress} className="flex-1 bg-slate-800 border border-slate-700 text-red-400 font-bold py-3 px-4 rounded-xl hover:bg-slate-700 transition-colors">
+                Zerar Apenas Meu Progresso
+              </button>
+              <button onClick={clearData} className="flex-1 bg-red-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-red-500 transition-colors shadow-lg shadow-red-900/30">
+                Apagar Banco de Dados (Requer Senha)
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- INICIALIZAÇÃO DO REACT ---
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
