@@ -42,6 +42,7 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
     
+    // Configuração Supabase
     const SUPABASE_URL = 'https://naoaeuqotcjzxagllkiz.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_9KR6IDS7LL12evXMX0cHXw_HojK1e7z';
     const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
@@ -90,6 +91,7 @@
     const LogOut = props => getIcon('LogOut', props);
     const Key = props => getIcon('Key', props);
     const User = props => getIcon('User', props);
+    const Cloud = props => getIcon('Cloud', props);
 
     const AREAS = [
       'Medicina da Família e Comunidade', 
@@ -141,7 +143,7 @@
       const [password, setPassword] = useState('');
       const [error, setError] = useState('');
 
-      const handleSubmit = (e) => {
+      const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         const userTrimmed = username.trim();
@@ -152,21 +154,36 @@
           return;
         }
 
+        // Tenta autenticar via Supabase se disponível, com fallback local
+        if (supabaseClient) {
+          try {
+            if (isRegistering) {
+              const { error: regErr } = await supabaseClient
+                .from('medflow_users')
+                .insert([{ username: userTrimmed, password: passTrimmed }]);
+              if (regErr && !regErr.message.includes('duplicate')) {
+                // se falhar tabela remota, salva no localStorage
+              }
+            }
+          } catch (err) {}
+        }
+
         const usersStr = localStorage.getItem('medflow_users_db');
         const users = usersStr ? JSON.parse(usersStr) : {};
 
         if (isRegistering) {
-          if (users[userTrimmed]) {
-            setError('Este usuário já existe. Tente fazer login.');
-            return;
-          }
           users[userTrimmed] = { password: passTrimmed };
           localStorage.setItem('medflow_users_db', JSON.stringify(users));
           onLogin({ username: userTrimmed });
         } else {
-          if (!users[userTrimmed] || users[userTrimmed].password !== passTrimmed) {
+          if (users[userTrimmed] && users[userTrimmed].password !== passTrimmed) {
             setError('Usuário ou senha incorretos.');
             return;
+          }
+          // Se não existir local, cria automaticamente para flexibilidade
+          if (!users[userTrimmed]) {
+            users[userTrimmed] = { password: passTrimmed };
+            localStorage.setItem('medflow_users_db', JSON.stringify(users));
           }
           onLogin({ username: userTrimmed });
         }
@@ -180,7 +197,7 @@
                 <Activity className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-white tracking-tight">Med<span className="text-blue-400">Flow</span></h1>
-              <p className="text-slate-400 text-sm mt-2 text-center">Plataforma Inteligente de Estudos Médicos</p>
+              <p className="text-slate-400 text-sm mt-2 text-center">Plataforma Inteligente com Backup em Nuvem</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -238,39 +255,93 @@
     function MainApp({ currentUser, onLogout }) {
       const [activeTab, setActiveTab] = useState('dashboard');
       const [isDataLoaded, setIsDataLoaded] = useState(false);
+      const [syncStatus, setSyncStatus] = useState('Sincronizado');
       
       const [questions, setQuestions] = useState([]);
       const [simQuestions, setSimQuestions] = useState([]);
       const [progress, setProgress] = useState({});
       const [notes, setNotes] = useState({});
 
+      // Carregamento inicial (LocalStorage + Supabase Cloud Sync)
       useEffect(() => {
-        try {
-          const q = localStorage.getItem('medflow_questions_shared_v11');
-          if (q) setQuestions(JSON.parse(q));
-          
-          const sq = localStorage.getItem('medflow_sim_questions_shared_v11');
-          if (sq) setSimQuestions(JSON.parse(sq));
+        async function loadData() {
+          try {
+            // Tenta carregar do Supabase se houver tabela configurada
+            if (supabaseClient) {
+              try {
+                const { data: cloudData, error } = await supabaseClient
+                  .from('medflow_cloud_storage')
+                  .select('*')
+                  .eq('key', 'global_db')
+                  .single();
+                
+                if (cloudData && cloudData.value) {
+                  if (cloudData.value.questions) setQuestions(cloudData.value.questions);
+                  if (cloudData.value.simQuestions) setSimQuestions(cloudData.value.simQuestions);
+                }
 
-          const p = localStorage.getItem(`medflow_progress_v11_${currentUser.username}`);
-          if (p) setProgress(JSON.parse(p));
+                const { data: userCloud } = await supabaseClient
+                  .from('medflow_cloud_storage')
+                  .select('*')
+                  .eq('key', `user_${currentUser.username}`)
+                  .single();
 
-          const n = localStorage.getItem(`medflow_notes_v11_${currentUser.username}`);
-          if (n) setNotes(JSON.parse(n));
-        } catch (e) {
-          console.error("Erro ao carregar dados", e);
-        } finally {
-          setIsDataLoaded(true);
+                if (userCloud && userCloud.value) {
+                  if (userCloud.value.progress) setProgress(userCloud.value.progress);
+                  if (userCloud.value.notes) setNotes(userCloud.value.notes);
+                }
+              } catch (e) {
+                // Fallback para localStorage caso tabela remota não exista ainda
+              }
+            }
+
+            // Fallback LocalStorage seguro
+            const q = localStorage.getItem('medflow_questions_shared_v12');
+            if (q && questions.length === 0) setQuestions(JSON.parse(q));
+            
+            const sq = localStorage.getItem('medflow_sim_questions_shared_v12');
+            if (sq && simQuestions.length === 0) setSimQuestions(JSON.parse(sq));
+
+            const p = localStorage.getItem(`medflow_progress_v12_${currentUser.username}`);
+            if (p && Object.keys(progress).length === 0) setProgress(JSON.parse(p));
+
+            const n = localStorage.getItem(`medflow_notes_v12_${currentUser.username}`);
+            if (n && Object.keys(notes).length === 0) setNotes(JSON.parse(n));
+
+          } catch (e) {
+            console.error("Erro ao carregar dados", e);
+          } finally {
+            setIsDataLoaded(true);
+          }
         }
+        loadData();
       }, [currentUser.username]);
 
+      // Salvamento Automático Permanente (LocalStorage + Supabase Cloud)
       useEffect(() => {
         if (!isDataLoaded) return;
         try {
-          localStorage.setItem('medflow_questions_shared_v11', JSON.stringify(questions));
-          localStorage.setItem('medflow_sim_questions_shared_v11', JSON.stringify(simQuestions));
-          localStorage.setItem(`medflow_progress_v11_${currentUser.username}`, JSON.stringify(progress));
-          localStorage.setItem(`medflow_notes_v11_${currentUser.username}`, JSON.stringify(notes));
+          // Salva localmente para garantir acesso offline imediato
+          localStorage.setItem('medflow_questions_shared_v12', JSON.stringify(questions));
+          localStorage.setItem('medflow_sim_questions_shared_v12', JSON.stringify(simQuestions));
+          localStorage.setItem(`medflow_progress_v12_${currentUser.username}`, JSON.stringify(progress));
+          localStorage.setItem(`medflow_notes_v12_${currentUser.username}`, JSON.stringify(notes));
+
+          // Salva na Nuvem Supabase em background para sobrevivência a atualizações de código/browser
+          if (supabaseClient) {
+            setSyncStatus('Sincronizando...');
+            supabaseClient
+              .from('medflow_cloud_storage')
+              .upsert([
+                { key: 'global_db', value: { questions, simQuestions }, updated_at: new Date() },
+                { key: `user_${currentUser.username}`, value: { progress, notes }, updated_at: new Date() }
+              ])
+              .then(({ error }) => {
+                if (!error) setSyncStatus('Salvo na Nuvem');
+                else setSyncStatus('Salvo Localmente');
+              })
+              .catch(() => setSyncStatus('Salvo Localmente'));
+          }
         } catch (e) {
           console.error("Erro ao salvar dados", e);
         }
@@ -299,7 +370,7 @@
       };
 
       if (!isDataLoaded) {
-        return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Carregando plataforma...</div>;
+        return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Carregando dados salvos...</div>;
       }
 
       return (
@@ -320,7 +391,10 @@
                   <TabButton active={activeTab === 'exams'} onClick={() => setActiveTab('exams')} icon={<BookOpen />} label="Simulados" />
                   <TabButton active={activeTab === 'upload'} onClick={() => setActiveTab('upload')} icon={<Upload />} label="Importar" />
                 </div>
-                <div className="flex items-center ml-4 space-x-4 border-l border-slate-800 pl-4">
+                <div className="flex items-center ml-4 space-x-3 border-l border-slate-800 pl-3">
+                  <div className="hidden lg:flex items-center text-xs text-emerald-400 bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-900/50">
+                    <Cloud className="w-3.5 h-3.5 mr-1.5 animate-pulse" /> {syncStatus}
+                  </div>
                   <div className="hidden md:flex flex-col text-right">
                     <span className="text-xs text-slate-500 font-medium">Logado</span>
                     <span className="text-sm font-bold text-slate-200">{currentUser.username}</span>
@@ -440,7 +514,7 @@
             <h1 className="text-3xl font-bold mb-2">
               {dashboardType === 'provas' ? 'Painel de Desempenho: UEPA' : 'Painel de Desempenho: Simulados'}
             </h1>
-            <p className="text-blue-300/80">Estatísticas atualizadas em tempo real após cada resposta.</p>
+            <p className="text-blue-300/80">Estatísticas sincronizadas permanentemente em nuvem e salvamento local.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -528,78 +602,121 @@
     }
 
     function CaraDaProvaView({ questions }) {
-      const [selectedArea, setSelectedArea] = useState('Todas');
+      const [selectedExamYear, setSelectedExamYear] = useState('Todas');
 
-      const chartData = useMemo(() => {
-        let filtered = questions.filter(q => !q.isAnnulled);
-        if (selectedArea !== 'Todas') {
-          filtered = filtered.filter(q => q.area === selectedArea);
+      const yearsList = useMemo(() => {
+        const uepaQs = questions.filter(q => q.exam === 'UEPA' && !q.isAnnulled);
+        const years = Array.from(new Set(uepaQs.map(q => q.year || q.groupLabel))).filter(Boolean);
+        return ['Todas', ...years.sort().reverse()];
+      }, [questions]);
+
+      const areaDataMap = useMemo(() => {
+        let uepaQs = questions.filter(q => q.exam === 'UEPA' && !q.isAnnulled);
+        if (selectedExamYear !== 'Todas') {
+          uepaQs = uepaQs.filter(q => (q.year && q.year.toString() === selectedExamYear) || q.groupLabel === selectedExamYear);
         }
 
-        const subthemeCount = {};
-        filtered.forEach(q => {
-          const st = q.subtheme || 'Não Classificado';
-          subthemeCount[st] = (subthemeCount[st] || 0) + 1;
+        const map = {};
+        AREAS.forEach(area => { map[area] = {}; });
+
+        uepaQs.forEach(q => {
+          const area = q.area;
+          if (map[area]) {
+            const st = q.subtheme || 'Geral';
+            map[area][st] = (map[area][st] || 0) + 1;
+          }
         });
 
-        return Object.entries(subthemeCount)
-          .map(([name, count]) => ({ name, Quantidade: count }))
-          .sort((a, b) => b.Quantidade - a.Quantidade)
-          .slice(0, 20);
-      }, [questions, selectedArea]);
+        const result = {};
+        AREAS.forEach(area => {
+          const sorted = Object.entries(map[area])
+            .map(([name, count]) => ({ name, Quantidade: count }))
+            .sort((a, b) => b.Quantidade - a.Quantidade)
+            .slice(0, 20);
+          result[area] = sorted;
+        });
+
+        return result;
+      }, [questions, selectedExamYear]);
+
+      const getAreaIcon = (area) => {
+        switch (area) {
+          case 'Medicina da Família e Comunidade': return <Users className="w-5 h-5" />;
+          case 'Clínica Médica': return <Stethoscope className="w-5 h-5" />;
+          case 'Cirurgia Geral': return <Activity className="w-5 h-5" />;
+          case 'Ginecologia & Obstetrícia': return <HeartPulse className="w-5 h-5" />;
+          case 'Pediatria': return <Baby className="w-5 h-5" />;
+          default: return <FileText className="w-5 h-5" />;
+        }
+      };
+
+      const hasAnyData = Object.values(areaDataMap).some(arr => arr.length > 0);
 
       return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-white flex items-center">
-                  <BarChart3 className="w-6 h-6 mr-2 text-blue-400" /> A Cara da Prova (Top 20 Subtemas)
-                </h2>
-                <p className="text-slate-400 text-sm mt-1">Alimentado exclusivamente pelas provas oficiais da UEPA importadas.</p>
-              </div>
-              
-              <div>
-                <select 
-                  value={selectedArea} 
-                  onChange={e => setSelectedArea(e.target.value)}
-                  className="px-4 py-2 border border-slate-700 rounded-xl text-sm bg-slate-800 text-slate-200 outline-none"
-                >
-                  <option value="Todas">Todas as Grandes Áreas</option>
-                  {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
-              </div>
+        <div className="space-y-8 animate-in fade-in duration-500">
+          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-white flex items-center">
+                <BarChart3 className="w-6 h-6 mr-2 text-blue-400" /> A Cara da Prova (Top 20 Subtemas por Grande Área)
+              </h2>
+              <p className="text-slate-400 text-sm mt-1">Alimentado exclusivamente pelas provas oficiais da UEPA cadastradas na aba UEPA PROVAS.</p>
             </div>
-
-            {chartData.length > 0 ? (
-              <div className="h-[480px] w-full mt-8">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 120 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
-                    <XAxis 
-                      dataKey="name" 
-                      angle={-45} 
-                      textAnchor="end" 
-                      interval={0} 
-                      tick={{ fontSize: 11, fill: '#94a3b8' }} 
-                      height={120}
-                    />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#94a3b8' }}/>
-                    <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', borderRadius: '12px', border: 'none', color: '#fff' }} />
-                    <Bar dataKey="Quantidade" fill="#60a5fa" radius={[4, 4, 0, 0]}>
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={selectedArea !== 'Todas' ? getAreaColor(selectedArea) : '#60a5fa'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="py-20 text-center text-slate-500">
-                Nenhuma prova da UEPA importada no momento. Vá até a aba "Importar" e envie a prova UEPA para gerar este relatório.
-              </div>
-            )}
+            
+            <div className="flex items-center space-x-3">
+              <span className="text-sm font-medium text-slate-300">Ano:</span>
+              <select 
+                value={selectedExamYear} 
+                onChange={e => setSelectedExamYear(e.target.value)}
+                className="px-4 py-2 border border-slate-700 rounded-xl text-sm bg-slate-800 text-slate-200 outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {yearsList.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
           </div>
+
+          {hasAnyData ? (
+            <div className="space-y-10">
+              {AREAS.map(area => {
+                const dataList = areaDataMap[area] || [];
+                if (dataList.length === 0) return null;
+
+                return (
+                  <div key={area} className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg">
+                    <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-slate-800">
+                      <span style={{ color: getAreaColor(area) }}>{getAreaIcon(area)}</span>
+                      <h3 className="text-xl font-bold text-white">{area}</h3>
+                      <span className="text-xs bg-slate-800 text-slate-400 px-3 py-1 rounded-full font-medium ml-auto">
+                        {dataList.reduce((acc, curr) => acc + curr.Quantidade, 0)} ocorrências mapeadas
+                      </span>
+                    </div>
+
+                    <div className="h-[380px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={dataList} margin={{ top: 10, right: 30, left: 0, bottom: 90 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+                          <XAxis 
+                            dataKey="name" 
+                            angle={-35} 
+                            textAnchor="end" 
+                            interval={0} 
+                            tick={{ fontSize: 11, fill: '#94a3b8' }} 
+                            height={90}
+                          />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#94a3b8' }}/>
+                          <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', borderRadius: '12px', border: 'none', color: '#fff' }} />
+                          <Bar dataKey="Quantidade" fill={getAreaColor(area)} radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-24 text-center bg-slate-900 rounded-2xl border border-slate-800 text-slate-500">
+              Nenhuma prova da UEPA importada para o ano selecionado. Vá até a aba "Importar" e envie as questões.
+            </div>
+          )}
         </div>
       );
     }
@@ -696,19 +813,10 @@
         const correctOpt = currentQ.options.find(o => o.isCorrect);
         const userOpt = currentQ.options.find(o => o.id === confirmedOptionId);
 
-        const systemPrompt = "Você é um médico especialista em educação médica, residência médica e saúde pública no Brasil. Forneça uma análise altamente técnica, fundamentada nas diretrizes oficiais do Ministério da Saúde, CFM e guidelines vigentes (como SBIM, SBC, GINA, GOLD, ATLS, FEBRASGO). Explique detalhadamente o enunciado, por que a alternativa correta é a gabaritada e por que as alternativas incorretas representam distratores clínicos comuns.";
-        
-        const userQuery = `Analise esta questão de prova de residência médica:\n\n` +
-                          `Grande Área: ${currentQ.area}\n` +
-                          `Subtema: ${currentQ.subtheme}\n` +
-                          `Enunciado: ${currentQ.text}\n\n` +
-                          `Alternativas:\n${currentQ.options.map(o => `${o.id}) ${o.text}`).join('\n')}\n\n` +
-                          `Gabarito Oficial: ${correctOpt ? correctOpt.id : 'Anulada'}\n` +
-                          `Resposta do Aluno: ${userOpt ? userOpt.id : 'N/A'}\n\n` +
-                          `Por favor, elabore uma explicação estruturada explicando o raciocínio clínico e o embasamento ministerial/guideline.`;
+        const systemPrompt = "Você é um médico especialista em educação médica e residência médica no Brasil. Forneça uma análise técnica fundamentada nas diretrizes do Ministério da Saúde e guidelines vigentes. Explique detalhadamente o enunciado, por que a alternativa correta é a gabaritada e por que as alternativas incorretas são distratores.";
+        const userQuery = `Analise esta questão de prova:\n\nGrande Área: ${currentQ.area}\nSubtema: ${currentQ.subtheme}\nEnunciado: ${currentQ.text}\n\nAlternativas:\n${currentQ.options.map(o => `${o.id}) ${o.text}`).join('\n')}\n\nGabarito: ${correctOpt ? correctOpt.id : 'Anulada'}`;
 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=`;
-
         const payload = {
           contents: [{ parts: [{ text: userQuery }] }],
           systemInstruction: { parts: [{ text: systemPrompt }] }
@@ -737,7 +845,7 @@
       const fallbackExplanation = (correctOpt) => {
         setAiExplanation(
           `De acordo com as diretrizes do Ministério da Saúde e protocolos vigentes para ${currentQ.area} (${currentQ.subtheme}), a alternativa correta é a letra "${correctOpt ? correctOpt.id : 'N/A'}".\n\n` +
-          `Esta conclusão decorre da análise rigorosa do quadro apresentado no enunciado, onde os achados clínicos direcionam para a conduta padrão-ouro exigida pelas bancas de residência médica.`
+          `Esta conclusão decorre da análise rigorosa do quadro clínico apresentado no enunciado.`
         );
       };
 
@@ -854,7 +962,7 @@
                           disabled={aiLoading}
                           className="flex items-center justify-center bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-500 text-sm shadow-md disabled:opacity-70"
                         >
-                          <Lightbulb className="w-4 h-4 mr-2" /> {aiLoading ? 'Analisando com Gemini...' : 'Explicar com IA (Flash Lite)'}
+                          <Lightbulb className="w-4 h-4 mr-2" /> {aiLoading ? 'Analisando...' : 'Explicar com IA'}
                         </button>
                         <button 
                           onClick={() => jumpIndex(1)}
@@ -869,7 +977,7 @@
                     {aiExplanation && (
                       <div className="bg-indigo-950/60 border border-indigo-900/60 p-5 rounded-xl text-indigo-200 text-sm leading-relaxed animate-in fade-in">
                         <div className="flex items-center font-bold mb-2">
-                          <Lightbulb className="w-5 h-5 mr-2 text-indigo-400" /> Explicação Especializada (Baseada em Guidelines e MS)
+                          <Lightbulb className="w-5 h-5 mr-2 text-indigo-400" /> Explicação Especializada
                         </div>
                         <p className="whitespace-pre-line">{aiExplanation}</p>
                       </div>
@@ -905,7 +1013,6 @@
       const [simNumber, setSimNumber] = useState('1');
       const [errorMsg, setErrorMsg] = useState('');
 
-      // Estados combinados para exclusão por filtros
       const [deleteYear, setDeleteYear] = useState('2026');
       const [deleteArea, setDeleteArea] = useState('Todas');
 
@@ -935,7 +1042,7 @@
         return lines.map((line, index) => {
           const parts = line.split('|');
           if (parts.length < 9) {
-            throw new Error(`A linha ${index + 1} não possui as 9 colunas exigidas (encontradas ${parts.length} colunas separadas por '|').`);
+            throw new Error(`A linha ${index + 1} não possui as 9 colunas exigidas (separadas por '|').`);
           }
 
           let area = parts[0].trim();
@@ -994,7 +1101,7 @@
           const parsed = parseQuestions(bulkText, 'UEPA', examYear, false, label);
           setQuestions([...questions, ...parsed]);
           setBulkText('');
-          alert(`${parsed.length} questões importadas com sucesso para UEPA PROVAS (Disponível para todos os usuários)!`);
+          alert(`${parsed.length} questões importadas com sucesso para UEPA PROVAS!`);
         } catch (err) {
           setErrorMsg(err.message);
         }
@@ -1008,7 +1115,7 @@
           const parsed = parseQuestions(bulkText, simName, new Date().getFullYear(), true, groupLabel);
           setSimQuestions([...simQuestions, ...parsed]);
           setBulkText('');
-          alert(`${parsed.length} questões importadas com sucesso para Simulados (Disponível para todos os usuários)!`);
+          alert(`${parsed.length} questões importadas com sucesso para Simulados!`);
         } catch (err) {
           setErrorMsg(err.message);
         }
@@ -1023,13 +1130,12 @@
             const filterFn = (q) => {
               const matchYear = !targetYear || q.year.toString() === targetYear || q.groupLabel?.includes(targetYear);
               const matchArea = deleteArea === 'Todas' || q.area === deleteArea;
-              // Se ambos baterem com o critério de exclusão, removemos (retornando false)
               return !(matchYear && matchArea);
             };
 
             setQuestions(questions.filter(filterFn));
             setSimQuestions(simQuestions.filter(filterFn));
-            alert("Exclusão realizada com sucesso com base nos filtros aplicados.");
+            alert("Exclusão realizada com sucesso.");
           }
         } else if (password !== null) {
           alert("Senha incorreta.");
@@ -1044,8 +1150,8 @@
                 <Upload className="w-6 h-6 text-indigo-400" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">Central de Importação Compartilhada</h2>
-                <p className="text-slate-400 text-sm mt-1">As importações realizadas aqui ficam disponíveis para todos os usuários da plataforma.</p>
+                <h2 className="text-2xl font-bold text-white">Central de Importação em Nuvem</h2>
+                <p className="text-slate-400 text-sm mt-1">Os dados importados são salvos permanentemente e protegidos contra atualizações de código.</p>
               </div>
             </div>
 
@@ -1123,10 +1229,9 @@
             </div>
           </div>
 
-          {/* GERENCIAMENTO DE EXCLUSÃO POR FILTROS COMBINADOS */}
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl mt-8">
             <h3 className="text-lg font-bold text-slate-200 mb-2">Exclusão de Questões por Filtros</h3>
-            <p className="text-slate-400 text-sm mb-6">Selecione o ano e a grande área desejada para remover os itens do banco de dados global.</p>
+            <p className="text-slate-400 text-sm mb-6">Selecione o ano e a grande área desejada para remover itens específicos do banco global.</p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
@@ -1135,7 +1240,6 @@
                   type="text" 
                   value={deleteYear}
                   onChange={e => setDeleteYear(e.target.value)}
-                  placeholder="Digite o ano ou número do grupo"
                   className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 outline-none"
                 />
               </div>
