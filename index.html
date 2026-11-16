@@ -929,13 +929,13 @@
       const [simName, setSimName] = useState('Simulado Integrado');
       const [simNumber, setSimNumber] = useState('1');
       const [errorMsg, setErrorMsg] = useState('');
+      const [yearToDelete, setYearToDelete] = useState('2026');
 
       const parseQuestions = (text, defaultExam, defaultYear, isSim = false, groupLabel = '') => {
         const rawLines = text.split('\n');
         const lines = [];
         let currentLine = '';
 
-        // Agrupa linhas caso o texto tenha quebras acidentais, garantindo 9 colunas (8 pipes '|')
         for (let i = 0; i < rawLines.length; i++) {
           const line = rawLines[i].trim();
           if (!line) continue;
@@ -1036,6 +1036,21 @@
         }
       };
 
+      const clearByYear = () => {
+        const password = window.prompt(`AÇÃO RESTRITA: Digite a senha de administrador para apagar as provas do ano ${yearToDelete}.`);
+        if (password === "admin") {
+          const targetYear = parseInt(yearToDelete);
+          const filteredUepa = questions.filter(q => q.year !== targetYear && q.groupLabel !== yearToDelete);
+          const filteredSim = simQuestions.filter(q => q.year !== targetYear && !q.groupLabel.includes(yearToDelete));
+          
+          setQuestions(filteredUepa);
+          setSimQuestions(filteredSim);
+          alert(`Provas/Simulados do ano/grupo ${yearToDelete} foram removidos com sucesso.`);
+        } else if (password !== null) {
+          alert("Senha incorreta.");
+        }
+      };
+
       return (
         <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-300">
           <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800 shadow-xl">
@@ -1123,14 +1138,31 @@
             </div>
           </div>
 
-          <div className="bg-slate-900 p-6 rounded-2xl border border-red-950 shadow-xl mt-8">
-            <h3 className="text-lg font-bold text-red-400 mb-4">Gerenciamento</h3>
+          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl mt-8">
+            <h3 className="text-lg font-bold text-slate-200 mb-4">Gerenciamento por Ano ou Geral</h3>
+            
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 flex flex-col sm:flex-row items-center gap-4">
+              <div className="flex-1 w-full">
+                <label className="block text-xs font-medium text-slate-400 mb-1">Apagar Provas / Grupo do Ano:</label>
+                <input 
+                  type="text" 
+                  value={yearToDelete}
+                  onChange={e => setYearToDelete(e.target.value)}
+                  placeholder="Ex: 2026"
+                  className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 outline-none"
+                />
+              </div>
+              <button onClick={clearByYear} className="w-full sm:w-auto mt-5 bg-amber-600 text-white font-bold py-2.5 px-6 rounded-xl hover:bg-amber-500 text-sm">
+                Apagar Ano Específico
+              </button>
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-4">
               <button onClick={clearProgress} className="flex-1 bg-slate-800 border border-slate-700 text-red-400 font-bold py-3 px-4 rounded-xl hover:bg-slate-700">
                 Zerar Meu Progresso Pessoal
               </button>
               <button onClick={clearData} className="flex-1 bg-red-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-red-500">
-                Apagar Banco Global (Requer Senha)
+                Apagar Todo o Banco Global (Requer Senha)
               </button>
             </div>
           </div>
