@@ -90,8 +90,6 @@
     const LogOut = props => getIcon('LogOut', props);
     const Key = props => getIcon('Key', props);
     const User = props => getIcon('User', props);
-    const Calendar = props => getIcon('Calendar', props);
-    const Clock = props => getIcon('Clock', props);
 
     const AREAS = [
       'Medicina da Família e Comunidade', 
@@ -241,28 +239,23 @@
       const [activeTab, setActiveTab] = useState('dashboard');
       const [isDataLoaded, setIsDataLoaded] = useState(false);
       
-      // Banco de dados global compartilhado entre todos os usuários
       const [questions, setQuestions] = useState([]);
       const [simQuestions, setSimQuestions] = useState([]);
-      
-      // Progresso individual por usuário
       const [progress, setProgress] = useState({});
       const [notes, setNotes] = useState({});
 
       useEffect(() => {
         try {
-          // Carrega questões globais compartilhadas
-          const q = localStorage.getItem('medflow_questions_shared_v10');
+          const q = localStorage.getItem('medflow_questions_shared_v11');
           if (q) setQuestions(JSON.parse(q));
           
-          const sq = localStorage.getItem('medflow_sim_questions_shared_v10');
+          const sq = localStorage.getItem('medflow_sim_questions_shared_v11');
           if (sq) setSimQuestions(JSON.parse(sq));
 
-          // Carrega progresso individual
-          const p = localStorage.getItem(`medflow_progress_v10_${currentUser.username}`);
+          const p = localStorage.getItem(`medflow_progress_v11_${currentUser.username}`);
           if (p) setProgress(JSON.parse(p));
 
-          const n = localStorage.getItem(`medflow_notes_v10_${currentUser.username}`);
+          const n = localStorage.getItem(`medflow_notes_v11_${currentUser.username}`);
           if (n) setNotes(JSON.parse(n));
         } catch (e) {
           console.error("Erro ao carregar dados", e);
@@ -274,12 +267,10 @@
       useEffect(() => {
         if (!isDataLoaded) return;
         try {
-          // Salva dados globais compartilhados para todos os usuários verem
-          localStorage.setItem('medflow_questions_shared_v10', JSON.stringify(questions));
-          localStorage.setItem('medflow_sim_questions_shared_v10', JSON.stringify(simQuestions));
-          // Salva progresso individual
-          localStorage.setItem(`medflow_progress_v10_${currentUser.username}`, JSON.stringify(progress));
-          localStorage.setItem(`medflow_notes_v10_${currentUser.username}`, JSON.stringify(notes));
+          localStorage.setItem('medflow_questions_shared_v11', JSON.stringify(questions));
+          localStorage.setItem('medflow_sim_questions_shared_v11', JSON.stringify(simQuestions));
+          localStorage.setItem(`medflow_progress_v11_${currentUser.username}`, JSON.stringify(progress));
+          localStorage.setItem(`medflow_notes_v11_${currentUser.username}`, JSON.stringify(notes));
         } catch (e) {
           console.error("Erro ao salvar dados", e);
         }
@@ -366,9 +357,6 @@
       );
     }
 
-    // ==========================================
-    // DASHBOARD
-    // ==========================================
     function DashboardView({ uepaQuestions, simQuestions, progress }) {
       const [dashboardType, setDashboardType] = useState('provas'); 
       const activeQuestions = dashboardType === 'provas' ? uepaQuestions : simQuestions;
@@ -456,7 +444,6 @@
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Gráfico em Pizza ACIMA do percentual correto */}
             <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg flex flex-col items-center justify-center">
               <h3 className="text-lg font-bold text-slate-200 mb-2">Taxa de Acertos e Erros</h3>
               
@@ -540,13 +527,9 @@
       );
     }
 
-    // ==========================================
-    // A CARA DA PROVA (EXCLUSIVO UEPA - TOP 20 POR GRANDE ÁREA)
-    // ==========================================
     function CaraDaProvaView({ questions }) {
       const [selectedArea, setSelectedArea] = useState('Todas');
 
-      // Base de dados restrita ao banco de provas da UEPA importadas
       const chartData = useMemo(() => {
         let filtered = questions.filter(q => !q.isAnnulled);
         if (selectedArea !== 'Todas') {
@@ -559,7 +542,6 @@
           subthemeCount[st] = (subthemeCount[st] || 0) + 1;
         });
 
-        // Top 20 subtemas mais prevalentes por grande área
         return Object.entries(subthemeCount)
           .map(([name, count]) => ({ name, Quantidade: count }))
           .sort((a, b) => b.Quantidade - a.Quantidade)
@@ -622,9 +604,6 @@
       );
     }
 
-    // ==========================================
-    // PLAYER DE EXAMES / SIMULADOS COM GEMINI API
-    // ==========================================
     function ExamsView({ questions, progress, setProgress, notes, setNotes, titlePrefix, isUepaView }) {
       const [selectedGroup, setSelectedGroup] = useState('Todos');
       const [selectedArea, setSelectedArea] = useState('Todas');
@@ -710,7 +689,6 @@
         setNotes({ ...notes, [currentQ.id]: noteText });
       };
 
-      // INTEGRAÇÃO COM GEMINI API (MODELO FLASH LITE) PARA EXPLICAÇÃO MÉDICA AVANÇADA
       const getAIExplanation = async () => {
         setAiLoading(true);
         setAiExplanation('');
@@ -920,16 +898,16 @@
       );
     }
 
-    // ==========================================
-    // IMPORTAÇÃO EM LOTE (COMPARTILHADA PARA TODOS OS USUÁRIOS)
-    // ==========================================
     function UploadView({ questions, setQuestions, simQuestions, setSimQuestions, clearData, clearProgress }) {
       const [bulkText, setBulkText] = useState('');
       const [examYear, setExamYear] = useState('2026');
       const [simName, setSimName] = useState('Simulado Integrado');
       const [simNumber, setSimNumber] = useState('1');
       const [errorMsg, setErrorMsg] = useState('');
-      const [yearToDelete, setYearToDelete] = useState('2026');
+
+      // Estados combinados para exclusão por filtros
+      const [deleteYear, setDeleteYear] = useState('2026');
+      const [deleteArea, setDeleteArea] = useState('Todas');
 
       const parseQuestions = (text, defaultExam, defaultYear, isSim = false, groupLabel = '') => {
         const rawLines = text.split('\n');
@@ -1036,16 +1014,23 @@
         }
       };
 
-      const clearByYear = () => {
-        const password = window.prompt(`AÇÃO RESTRITA: Digite a senha de administrador para apagar as provas do ano ${yearToDelete}.`);
+      const handleFilteredDelete = () => {
+        const password = window.prompt("AÇÃO RESTRITA: Digite a senha de administrador para confirmar a exclusão com base nos filtros selecionados.");
         if (password === "admin") {
-          const targetYear = parseInt(yearToDelete);
-          const filteredUepa = questions.filter(q => q.year !== targetYear && q.groupLabel !== yearToDelete);
-          const filteredSim = simQuestions.filter(q => q.year !== targetYear && !q.groupLabel.includes(yearToDelete));
+          const targetYear = deleteYear.trim();
           
-          setQuestions(filteredUepa);
-          setSimQuestions(filteredSim);
-          alert(`Provas/Simulados do ano/grupo ${yearToDelete} foram removidos com sucesso.`);
+          if (window.confirm(`Tem certeza que deseja apagar as questões do Ano/Grupo "${targetYear}" e Área "${deleteArea}"?`)) {
+            const filterFn = (q) => {
+              const matchYear = !targetYear || q.year.toString() === targetYear || q.groupLabel?.includes(targetYear);
+              const matchArea = deleteArea === 'Todas' || q.area === deleteArea;
+              // Se ambos baterem com o critério de exclusão, removemos (retornando false)
+              return !(matchYear && matchArea);
+            };
+
+            setQuestions(questions.filter(filterFn));
+            setSimQuestions(simQuestions.filter(filterFn));
+            alert("Exclusão realizada com sucesso com base nos filtros aplicados.");
+          }
         } else if (password !== null) {
           alert("Senha incorreta.");
         }
@@ -1138,30 +1123,50 @@
             </div>
           </div>
 
+          {/* GERENCIAMENTO DE EXCLUSÃO POR FILTROS COMBINADOS */}
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl mt-8">
-            <h3 className="text-lg font-bold text-slate-200 mb-4">Gerenciamento por Ano ou Geral</h3>
+            <h3 className="text-lg font-bold text-slate-200 mb-2">Exclusão de Questões por Filtros</h3>
+            <p className="text-slate-400 text-sm mb-6">Selecione o ano e a grande área desejada para remover os itens do banco de dados global.</p>
             
-            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 flex flex-col sm:flex-row items-center gap-4">
-              <div className="flex-1 w-full">
-                <label className="block text-xs font-medium text-slate-400 mb-1">Apagar Provas / Grupo do Ano:</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">Ano / Prova (Ex: 2026)</label>
                 <input 
                   type="text" 
-                  value={yearToDelete}
-                  onChange={e => setYearToDelete(e.target.value)}
-                  placeholder="Ex: 2026"
-                  className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 outline-none"
+                  value={deleteYear}
+                  onChange={e => setDeleteYear(e.target.value)}
+                  placeholder="Digite o ano ou número do grupo"
+                  className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 outline-none"
                 />
               </div>
-              <button onClick={clearByYear} className="w-full sm:w-auto mt-5 bg-amber-600 text-white font-bold py-2.5 px-6 rounded-xl hover:bg-amber-500 text-sm">
-                Apagar Ano Específico
+
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">Grande Área</label>
+                <select 
+                  value={deleteArea}
+                  onChange={e => setDeleteArea(e.target.value)}
+                  className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 outline-none"
+                >
+                  <option value="Todas">Todas as Grandes Áreas</option>
+                  {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <button 
+                onClick={handleFilteredDelete} 
+                className="w-full bg-rose-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-rose-500 transition-colors shadow-lg shadow-rose-900/30 text-sm"
+              >
+                Apagar Questões Correspondentes aos Filtros Acima
               </button>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-              <button onClick={clearProgress} className="flex-1 bg-slate-800 border border-slate-700 text-red-400 font-bold py-3 px-4 rounded-xl hover:bg-slate-700">
+            <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-slate-800">
+              <button onClick={clearProgress} className="flex-1 bg-slate-800 border border-slate-700 text-red-400 font-bold py-3 px-4 rounded-xl hover:bg-slate-700 text-sm">
                 Zerar Meu Progresso Pessoal
               </button>
-              <button onClick={clearData} className="flex-1 bg-red-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-red-500">
+              <button onClick={clearData} className="flex-1 bg-red-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-red-500 text-sm shadow-lg shadow-red-900/30">
                 Apagar Todo o Banco Global (Requer Senha)
               </button>
             </div>
