@@ -931,11 +931,33 @@
       const [errorMsg, setErrorMsg] = useState('');
 
       const parseQuestions = (text, defaultExam, defaultYear, isSim = false, groupLabel = '') => {
-        const lines = text.split('\n').filter(line => line.trim() !== '');
+        const rawLines = text.split('\n');
+        const lines = [];
+        let currentLine = '';
+
+        // Agrupa linhas caso o texto tenha quebras acidentais, garantindo 9 colunas (8 pipes '|')
+        for (let i = 0; i < rawLines.length; i++) {
+          const line = rawLines[i].trim();
+          if (!line) continue;
+          
+          if (!currentLine) {
+            currentLine = line;
+          } else {
+            const partsCount = currentLine.split('|').length;
+            if (partsCount < 9) {
+              currentLine += ' ' + line;
+            } else {
+              lines.push(currentLine);
+              currentLine = line;
+            }
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+
         return lines.map((line, index) => {
-          const parts = line.split(';');
+          const parts = line.split('|');
           if (parts.length < 9) {
-            throw new Error(`A linha ${index + 1} não possui as 9 colunas exigidas.`);
+            throw new Error(`A linha ${index + 1} não possui as 9 colunas exigidas (encontradas ${parts.length} colunas separadas por '|').`);
           }
 
           let area = parts[0].trim();
@@ -960,7 +982,7 @@
           const altD = parts[6].trim();
           const altE = parts[7].trim();
           
-          const gabarito = parts[parts.length - 1]?.trim() || ''; 
+          const gabarito = parts[8]?.trim() || ''; 
           const gabaritoFormatado = gabarito.toUpperCase();
           const isAnnulled = gabaritoFormatado === 'ANULADA' || gabaritoFormatado === 'NULA' || gabaritoFormatado === '-' || gabaritoFormatado === '';
 
@@ -1028,15 +1050,15 @@
             </div>
 
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-6 mb-6">
-              <p className="text-sm font-medium text-slate-300 mb-2">Padrão Obrigatório (9 Colunas):</p>
+              <p className="text-sm font-medium text-slate-300 mb-2">Padrão Obrigatório (9 Colunas separadas por Pipe |):</p>
               <code className="block bg-slate-900 p-3 rounded-lg text-slate-300 text-xs font-mono overflow-x-auto border border-slate-800">
-                Área; Subtema; Enunciado da questão; Alt A; Alt B; Alt C; Alt D; Alt E; Gabarito (A/B/C/D/E ou Anulada)
+                Área | Subtema | Enunciado da questão | Alt A | Alt B | Alt C | Alt D | Alt E | Gabarito (A/B/C/D/E ou Anulada)
               </code>
             </div>
 
             <textarea 
               className="w-full h-52 p-4 border border-slate-800 rounded-xl font-mono text-sm bg-slate-950 text-slate-200 outline-none mb-6 resize-y"
-              placeholder="Cole as questões aqui..."
+              placeholder="Cole as questões usando | como separador..."
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
             />
@@ -1105,7 +1127,7 @@
             <h3 className="text-lg font-bold text-red-400 mb-4">Gerenciamento</h3>
             <div className="flex flex-col sm:flex-row gap-4">
               <button onClick={clearProgress} className="flex-1 bg-slate-800 border border-slate-700 text-red-400 font-bold py-3 px-4 rounded-xl hover:bg-slate-700">
-                Zerar Meu Progreso Pessoal
+                Zerar Meu Progresso Pessoal
               </button>
               <button onClick={clearData} className="flex-1 bg-red-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-red-500">
                 Apagar Banco Global (Requer Senha)
