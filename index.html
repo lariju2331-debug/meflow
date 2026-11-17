@@ -54,11 +54,6 @@
     const ResponsiveContainer = RechartsLib.ResponsiveContainer || (props => <div style={{width: '100%', height: '100%'}} {...props} />);
     const RechartsTooltip = RechartsLib.Tooltip || (props => null);
     const Legend = RechartsLib.Legend || (props => null);
-    const BarChart = RechartsLib.BarChart || (props => <div {...props} />);
-    const Bar = RechartsLib.Bar || (props => null);
-    const XAxis = RechartsLib.XAxis || (props => null);
-    const YAxis = RechartsLib.YAxis || (props => null);
-    const CartesianGrid = RechartsLib.CartesianGrid || (props => null);
 
     const LucideIcons = window.lucideReact || {};
     const getIcon = (name, props) => {
@@ -181,7 +176,6 @@
             users[userTrimmed] = { password: passTrimmed };
           } else {
             if (!users[userTrimmed]) {
-              // Auto-registra se não existir para facilitar o acesso global
               users[userTrimmed] = { password: passTrimmed };
             } else if (users[userTrimmed].password !== passTrimmed) {
               setError('Usuário ou senha incorretos.');
@@ -190,7 +184,6 @@
             }
           }
 
-          // Salva globalmente no Supabase
           if (supabaseClient) {
             await supabaseClient
               .from('medflow_cloud_storage')
@@ -214,7 +207,7 @@
                 <Activity className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-white tracking-tight">Med<span className="text-blue-400">Flow</span></h1>
-              <p className="text-slate-400 text-sm mt-2 text-center">Progresso Sincronizado em Nuvem Global</p>
+              <p className="text-slate-400 text-sm mt-2 text-center">Banco Base Global & Progresso Individual</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -285,7 +278,7 @@
           try {
             if (supabaseClient) {
               try {
-                // Carrega banco de dados global (questões e simulados)
+                // Carrega banco de dados base global (questões e simulados compartilhados)
                 const { data: cloudData } = await supabaseClient
                   .from('medflow_cloud_storage')
                   .select('*')
@@ -297,7 +290,7 @@
                   if (cloudData.value.simQuestions) setSimQuestions(cloudData.value.simQuestions);
                 }
 
-                // Carrega progresso global do usuário logado na nuvem
+                // Carrega progresso exclusivo do usuário logado na nuvem
                 const { data: userCloud } = await supabaseClient
                   .from('medflow_cloud_storage')
                   .select('*')
@@ -313,11 +306,11 @@
               }
             }
 
-            // Fallback / Cache local
-            const q = localStorage.getItem('medflow_questions_shared_v13');
+            // Fallback Local
+            const q = localStorage.getItem('medflow_questions_shared_v14');
             if (q && questions.length === 0) setQuestions(JSON.parse(q));
             
-            const sq = localStorage.getItem('medflow_sim_questions_shared_v13');
+            const sq = localStorage.getItem('medflow_sim_questions_shared_v14');
             if (sq && simQuestions.length === 0) setSimQuestions(JSON.parse(sq));
 
             const p = localStorage.getItem(`medflow_progress_global_${currentUser.username}`);
@@ -338,8 +331,8 @@
       useEffect(() => {
         if (!isDataLoaded) return;
         try {
-          localStorage.setItem('medflow_questions_shared_v13', JSON.stringify(questions));
-          localStorage.setItem('medflow_sim_questions_shared_v13', JSON.stringify(simQuestions));
+          localStorage.setItem('medflow_questions_shared_v14', JSON.stringify(questions));
+          localStorage.setItem('medflow_sim_questions_shared_v14', JSON.stringify(simQuestions));
           localStorage.setItem(`medflow_progress_global_${currentUser.username}`, JSON.stringify(progress));
           localStorage.setItem(`medflow_notes_global_${currentUser.username}`, JSON.stringify(notes));
 
@@ -363,14 +356,14 @@
       }, [questions, simQuestions, progress, notes, isDataLoaded, currentUser.username]);
 
       const clearData = () => {
-        const password = window.prompt("AÇÃO RESTRITA: Digite a senha de administrador para apagar o banco de dados global.");
+        const password = window.prompt("AÇÃO RESTRITA: Digite a senha de administrador para apagar o banco de dados base global.");
         if (password === "admin") {
-          if (window.confirm('Tem certeza ABSOLUTA? Todas as provas e simulados globais serão apagados.')) {
+          if (window.confirm('Tem certeza ABSOLUTA? Todas as provas e simulados base serão apagados para todos os usuários.')) {
             setQuestions([]);
             setSimQuestions([]);
             setProgress({});
             setNotes({});
-            alert("Banco de dados apagado com sucesso.");
+            alert("Banco de dados base apagado com sucesso.");
           }
         } else if (password !== null) {
           alert("Senha incorreta.");
@@ -378,7 +371,7 @@
       };
 
       const clearProgress = () => {
-        if (window.confirm('Deseja zerar apenas o seu progresso pessoal?')) {
+        if (window.confirm('Deseja zerar apenas o seu progresso pessoal de respostas?')) {
           setProgress({});
           setNotes({});
         }
@@ -498,13 +491,13 @@
           return [{
             title: "Nenhum erro registrado",
             interval: "Revisão Geral (Hoje)",
-            content: "Responda mais questões para ativar o plano de estudo baseado em repetição espaçada."
+            content: "Responda questões para ativar o plano de estudo personalizado baseado no seu progresso."
           }];
         }
         return sortedErrors.slice(0, 3).map(([topic, count]) => ({
           title: `Reforço: ${topic}`,
-          interval: count >= 3 ? "Alta Prioridade" : "Revisão em 3 dias",
-          content: `Você errou este subtema ${count} vez(es). Revise os guidelines do Ministério da Saúde para fixar a conduta correta.`
+          interval: count >= 3 ? "Alta Prioridade" : "Revisão Espaçada",
+          content: `Você errou este subtema ${count} vez(es) nas suas respostas. Revise os guidelines do Ministério da Saúde.`
         }));
       }, [stats.wrongSubthemes]);
 
@@ -529,7 +522,7 @@
             <h1 className="text-3xl font-bold mb-2">
               {dashboardType === 'provas' ? 'Painel de Desempenho: UEPA' : 'Painel de Desempenho: Simulados'}
             </h1>
-            <p className="text-blue-300/80">Estatísticas sincronizadas permanentemente em nuvem e salvamento local.</p>
+            <p className="text-blue-300/80">Atualizado dinamicamente de acordo com o seu progresso pessoal de respostas.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -558,7 +551,7 @@
                 </div>
               ) : (
                 <div className="h-36 flex items-center justify-center text-slate-500 text-sm">
-                  Nenhuma questão respondida.
+                  Responda questões para gerar o gráfico.
                 </div>
               )}
 
@@ -600,7 +593,7 @@
 
           <div className="border p-6 rounded-2xl bg-blue-950/40 border-blue-900/50">
             <h4 className="font-bold text-lg text-blue-200 mb-3 flex items-center">
-              <Lightbulb className="w-5 h-5 mr-2 text-blue-400" /> Plano de Revisão Espaçada (Recomendações Inteligentes)
+              <Lightbulb className="w-5 h-5 mr-2 text-blue-400" /> Recomendações Inteligentes (Baseadas no seu Progresso)
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {recommendationsList.map((rec, i) => (
@@ -668,7 +661,7 @@
                 <h2 className="text-2xl font-bold text-white flex items-center">
                   <BarChart3 className="w-6 h-6 mr-2 text-blue-400" /> A Cara da Prova (Incidência de Subtemas)
                 </h2>
-                <p className="text-slate-400 text-sm mt-1">Análise percentual baseada exclusivamente nas provas oficiais da UEPA cadastradas.</p>
+                <p className="text-slate-400 text-sm mt-1">Análise percentual baseada exclusivamente nas provas oficiais da UEPA cadastradas no banco base.</p>
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
@@ -745,7 +738,7 @@
               </div>
             ) : (
               <div className="py-24 text-center text-slate-500 bg-slate-950 rounded-2xl border border-slate-800 mt-4">
-                Nenhuma prova da UEPA cadastrada para os filtros selecionados. Vá até a aba "Importar" para enviar os dados.
+                Nenhuma prova da UEPA cadastrada para os filtros selecionados. Vá até a aba "Importar" para enviar os dados base.
               </div>
             )}
           </div>
@@ -796,8 +789,8 @@
         return (
           <div className="text-center py-20 bg-slate-900 rounded-2xl border border-slate-800">
             <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-slate-300">Nenhum item disponível nesta aba</h2>
-            <p className="text-slate-500 mt-2">Vá até a aba "Importar" para cadastrar questões.</p>
+            <h2 className="text-xl font-bold text-slate-300">Nenhum item disponível no banco base</h2>
+            <p className="text-slate-500 mt-2">Vá até a aba "Importar" para cadastrar as questões que aparecerão para todos os usuários.</p>
           </div>
         );
       }
@@ -1015,7 +1008,7 @@
                     )}
 
                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                      <h4 className="text-sm font-bold text-slate-300 mb-2 flex items-center"><FileText className="w-4 h-4 mr-2" /> Minhas Anotações</h4>
+                      <h4 className="text-sm font-bold text-slate-300 mb-2 flex items-center"><FileText className="w-4 h-4 mr-2" /> Minhas Anotações Pessoais</h4>
                       <textarea
                         value={noteText}
                         onChange={(e) => setNoteText(e.target.value)}
@@ -1132,7 +1125,7 @@
           const parsed = parseQuestions(bulkText, 'UEPA', examYear, false, label);
           setQuestions([...questions, ...parsed]);
           setBulkText('');
-          alert(`${parsed.length} questões importadas com sucesso para UEPA PROVAS!`);
+          alert(`${parsed.length} questões importadas com sucesso para o Banco Base (UEPA PROVAS)!`);
         } catch (err) {
           setErrorMsg(err.message);
         }
@@ -1146,7 +1139,7 @@
           const parsed = parseQuestions(bulkText, simName, new Date().getFullYear(), true, groupLabel);
           setSimQuestions([...simQuestions, ...parsed]);
           setBulkText('');
-          alert(`${parsed.length} questões importadas com sucesso para Simulados!`);
+          alert(`${parsed.length} questões importadas com sucesso para o Banco Base (Simulados)!`);
         } catch (err) {
           setErrorMsg(err.message);
         }
@@ -1157,7 +1150,7 @@
         if (password === "admin") {
           const targetYear = deleteYear.trim();
           
-          if (window.confirm(`Tem certeza que deseja apagar as questões do Ano/Grupo "${targetYear}" e Área "${deleteArea}"?`)) {
+          if (window.confirm(`Tem certeza que deseja apagar as questões do Ano/Grupo "${targetYear}" e Área "${deleteArea}" do banco base?`)) {
             const filterFn = (q) => {
               const matchYear = !targetYear || q.year.toString() === targetYear || q.groupLabel?.includes(targetYear);
               const matchArea = deleteArea === 'Todas' || q.area === deleteArea;
@@ -1166,7 +1159,7 @@
 
             setQuestions(questions.filter(filterFn));
             setSimQuestions(simQuestions.filter(filterFn));
-            alert("Exclusão realizada com sucesso.");
+            alert("Exclusão realizada com sucesso do banco base.");
           }
         } else if (password !== null) {
           alert("Senha incorreta.");
@@ -1181,8 +1174,8 @@
                 <Upload className="w-6 h-6 text-indigo-400" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">Central de Importação em Nuvem</h2>
-                <p className="text-slate-400 text-sm mt-1">Os dados importados são salvos permanentemente e protegidos contra atualizações de código.</p>
+                <h2 className="text-2xl font-bold text-white">Banco de Dados Base (Global)</h2>
+                <p className="text-slate-400 text-sm mt-1">As provas e simulados importados aqui ficam disponíveis para todos os usuários logados na plataforma.</p>
               </div>
             </div>
 
@@ -1210,7 +1203,7 @@
               <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 flex flex-col justify-between">
                 <div>
                   <h3 className="font-bold text-white mb-3 flex items-center text-sm">
-                    <Archive className="w-4 h-4 mr-2 text-blue-400" /> Destino: UEPA PROVAS
+                    <Archive className="w-4 h-4 mr-2 text-blue-400" /> Destino: UEPA PROVAS (Base)
                   </h3>
                   <div className="mb-4">
                     <label className="block text-xs font-medium text-slate-400 mb-1">Ano da Prova UEPA</label>
@@ -1223,14 +1216,14 @@
                   </div>
                 </div>
                 <button onClick={handleImportUepa} className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-500 text-sm">
-                  Importar para UEPA
+                  Importar para Banco Base UEPA
                 </button>
               </div>
 
               <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 flex flex-col justify-between">
                 <div>
                   <h3 className="font-bold text-white mb-3 flex items-center text-sm">
-                    <BookOpen className="w-4 h-4 mr-2 text-indigo-400" /> Destino: Simulados
+                    <BookOpen className="w-4 h-4 mr-2 text-indigo-400" /> Destino: Simulados (Base)
                   </h3>
                   <div className="grid grid-cols-2 gap-2 mb-4">
                     <div>
@@ -1254,15 +1247,15 @@
                   </div>
                 </div>
                 <button onClick={handleImportSimulado} className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl hover:bg-indigo-500 text-sm">
-                  Importar para Simulados
+                  Importar para Banco Base Simulados
                 </button>
               </div>
             </div>
           </div>
 
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl mt-8">
-            <h3 className="text-lg font-bold text-slate-200 mb-2">Exclusão de Questões por Filtros</h3>
-            <p className="text-slate-400 text-sm mb-6">Selecione o ano e a grande área desejada para remover itens específicos do banco global.</p>
+            <h3 className="text-lg font-bold text-slate-200 mb-2">Exclusão de Questões do Banco Base</h3>
+            <p className="text-slate-400 text-sm mb-6">Selecione o ano e a grande área desejada para remover itens do banco global compartilhado.</p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
@@ -1293,7 +1286,7 @@
                 onClick={handleFilteredDelete} 
                 className="w-full bg-rose-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-rose-500 transition-colors shadow-lg shadow-rose-900/30 text-sm"
               >
-                Apagar Questões Correspondentes aos Filtros Acima
+                Apagar Questões do Banco Base Correspondentes aos Filtros
               </button>
             </div>
 
@@ -1302,7 +1295,7 @@
                 Zerar Meu Progresso Pessoal
               </button>
               <button onClick={clearData} className="flex-1 bg-red-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-red-500 text-sm shadow-lg shadow-red-900/30">
-                Apagar Todo o Banco Global (Requer Senha)
+                Apagar Todo o Banco Base (Requer Senha)
               </button>
             </div>
           </div>
