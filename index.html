@@ -256,6 +256,7 @@
           try {
             if (supabaseClient) {
               try {
+                // Carrega banco de dados global (questões e simulados)
                 const { data: cloudData } = await supabaseClient
                   .from('medflow_cloud_storage')
                   .select('*')
@@ -267,29 +268,33 @@
                   if (cloudData.value.simQuestions) setSimQuestions(cloudData.value.simQuestions);
                 }
 
+                // Carrega progresso global do usuário logado na nuvem
                 const { data: userCloud } = await supabaseClient
                   .from('medflow_cloud_storage')
                   .select('*')
-                  .eq('key', `user_${currentUser.username}`)
+                  .eq('key', `user_global_${currentUser.username}`)
                   .single();
 
                 if (userCloud && userCloud.value) {
                   if (userCloud.value.progress) setProgress(userCloud.value.progress);
                   if (userCloud.value.notes) setNotes(userCloud.value.notes);
                 }
-              } catch (e) {}
+              } catch (e) {
+                console.log("Modo offline ou tabela em nuvem pendente, usando cache local.");
+              }
             }
 
+            // Fallback / Cache local para garantir velocidade e redundância
             const q = localStorage.getItem('medflow_questions_shared_v12');
             if (q && questions.length === 0) setQuestions(JSON.parse(q));
             
             const sq = localStorage.getItem('medflow_sim_questions_shared_v12');
             if (sq && simQuestions.length === 0) setSimQuestions(JSON.parse(sq));
 
-            const p = localStorage.getItem(`medflow_progress_v12_${currentUser.username}`);
+            const p = localStorage.getItem(`medflow_progress_global_${currentUser.username}`);
             if (p && Object.keys(progress).length === 0) setProgress(JSON.parse(p));
 
-            const n = localStorage.getItem(`medflow_notes_v12_${currentUser.username}`);
+            const n = localStorage.getItem(`medflow_notes_global_${currentUser.username}`);
             if (n && Object.keys(notes).length === 0) setNotes(JSON.parse(n));
 
           } catch (e) {
@@ -304,24 +309,26 @@
       useEffect(() => {
         if (!isDataLoaded) return;
         try {
+          // Atualiza cache local
           localStorage.setItem('medflow_questions_shared_v12', JSON.stringify(questions));
           localStorage.setItem('medflow_sim_questions_shared_v12', JSON.stringify(simQuestions));
-          localStorage.setItem(`medflow_progress_v12_${currentUser.username}`, JSON.stringify(progress));
-          localStorage.setItem(`medflow_notes_v12_${currentUser.username}`, JSON.stringify(notes));
+          localStorage.setItem(`medflow_progress_global_${currentUser.username}`, JSON.stringify(progress));
+          localStorage.setItem(`medflow_notes_global_${currentUser.username}`, JSON.stringify(notes));
 
+          // Salva globalmente no Supabase para sincronização em nuvem
           if (supabaseClient) {
             setSyncStatus('Sincronizando...');
             supabaseClient
               .from('medflow_cloud_storage')
               .upsert([
                 { key: 'global_db', value: { questions, simQuestions }, updated_at: new Date() },
-                { key: `user_${currentUser.username}`, value: { progress, notes }, updated_at: new Date() }
-              ])
+                { key: `user_global_${currentUser.username}`, value: { progress, notes }, updated_at: new Date() }
+              ], { onConflict: 'key' })
               .then(({ error }) => {
-                if (!error) setSyncStatus('Salvo na Nuvem');
-                else setSyncStatus('Salvo Localmente');
+                if (!error) setSyncStatus('Sincronizado na Nuvem');
+                else setSyncStatus('Modo Local Ativo');
               })
-              .catch(() => setSyncStatus('Salvo Localmente'));
+              .catch(() => setSyncStatus('Modo Local Ativo'));
           }
         } catch (e) {
           console.error("Erro ao salvar dados", e);
