@@ -207,7 +207,7 @@
                 <Activity className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-white tracking-tight">Med<span className="text-blue-400">Flow</span></h1>
-              <p className="text-slate-400 text-sm mt-2 text-center">Banco Base Global & Progresso Individual</p>
+              <p className="text-slate-400 text-sm mt-2 text-center">Banco Base Global & Progresso Individual em Nuvem</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -266,7 +266,7 @@
     function MainApp({ currentUser, onLogout }) {
       const [activeTab, setActiveTab] = useState('dashboard');
       const [isDataLoaded, setIsDataLoaded] = useState(false);
-      const [syncStatus, setSyncStatus] = useState('Sincronizado');
+      const [syncStatus, setSyncStatus] = useState('Sincronizando...');
       
       const [questions, setQuestions] = useState([]);
       const [simQuestions, setSimQuestions] = useState([]);
@@ -277,50 +277,53 @@
         async function loadData() {
           try {
             if (supabaseClient) {
-              try {
-                // Carrega banco de dados base global (questões e simulados compartilhados)
-                const { data: cloudData } = await supabaseClient
-                  .from('medflow_cloud_storage')
-                  .select('*')
-                  .eq('key', 'global_db')
-                  .single();
-                
-                if (cloudData && cloudData.value) {
-                  if (cloudData.value.questions) setQuestions(cloudData.value.questions);
-                  if (cloudData.value.simQuestions) setSimQuestions(cloudData.value.simQuestions);
-                }
+              // Carrega banco de dados base global (questões e simulados compartilhados)
+              const { data: cloudData } = await supabaseClient
+                .from('medflow_cloud_storage')
+                .select('*')
+                .eq('key', 'global_db')
+                .single();
+              
+              if (cloudData && cloudData.value) {
+                if (cloudData.value.questions) setQuestions(cloudData.value.questions);
+                if (cloudData.value.simQuestions) setSimQuestions(cloudData.value.simQuestions);
+              }
 
-                // Carrega progresso exclusivo do usuário logado na nuvem
-                const { data: userCloud } = await supabaseClient
-                  .from('medflow_cloud_storage')
-                  .select('*')
-                  .eq('key', `user_global_${currentUser.username}`)
-                  .single();
+              // Carrega progresso exclusivo do usuário logado na nuvem
+              const { data: userCloud } = await supabaseClient
+                .from('medflow_cloud_storage')
+                .select('*')
+                .eq('key', `user_global_${currentUser.username}`)
+                .single();
 
-                if (userCloud && userCloud.value) {
-                  if (userCloud.value.progress) setProgress(userCloud.value.progress);
-                  if (userCloud.value.notes) setNotes(userCloud.value.notes);
-                }
-              } catch (e) {
-                console.log("Usando cache local.");
+              if (userCloud && userCloud.value) {
+                if (userCloud.value.progress) setProgress(userCloud.value.progress);
+                if (userCloud.value.notes) setNotes(userCloud.value.notes);
               }
             }
 
-            // Fallback Local
-            const q = localStorage.getItem('medflow_questions_shared_v14');
-            if (q && questions.length === 0) setQuestions(JSON.parse(q));
-            
-            const sq = localStorage.getItem('medflow_sim_questions_shared_v14');
-            if (sq && simQuestions.length === 0) setSimQuestions(JSON.parse(sq));
+            // Fallback Local caso offline
+            if (questions.length === 0) {
+              const q = localStorage.getItem('medflow_questions_shared_v14');
+              if (q) setQuestions(JSON.parse(q));
+            }
+            if (simQuestions.length === 0) {
+              const sq = localStorage.getItem('medflow_sim_questions_shared_v14');
+              if (sq) setSimQuestions(JSON.parse(sq));
+            }
+            if (Object.keys(progress).length === 0) {
+              const p = localStorage.getItem(`medflow_progress_global_${currentUser.username}`);
+              if (p) setProgress(JSON.parse(p));
+            }
+            if (Object.keys(notes).length === 0) {
+              const n = localStorage.getItem(`medflow_notes_global_${currentUser.username}`);
+              if (n) setNotes(JSON.parse(n));
+            }
 
-            const p = localStorage.getItem(`medflow_progress_global_${currentUser.username}`);
-            if (p && Object.keys(progress).length === 0) setProgress(JSON.parse(p));
-
-            const n = localStorage.getItem(`medflow_notes_global_${currentUser.username}`);
-            if (n && Object.keys(notes).length === 0) setNotes(JSON.parse(n));
-
+            setSyncStatus('Sincronizado na Nuvem');
           } catch (e) {
             console.error("Erro ao carregar dados", e);
+            setSyncStatus('Modo Offline');
           } finally {
             setIsDataLoaded(true);
           }
@@ -378,7 +381,7 @@
       };
 
       if (!isDataLoaded) {
-        return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Carregando dados salvos...</div>;
+        return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Sincronizando com a Nuvem...</div>;
       }
 
       return (
