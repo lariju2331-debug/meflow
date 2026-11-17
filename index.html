@@ -142,11 +142,12 @@
       const [username, setUsername] = useState('');
       const [password, setPassword] = useState('');
       const [error, setError] = useState('');
+      const [loading, setLoading] = useState(false);
 
       const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        const userTrimmed = username.trim();
+        const userTrimmed = username.trim().toLowerCase();
         const passTrimmed = password.trim();
 
         if (!userTrimmed || !passTrimmed) {
@@ -154,27 +155,54 @@
           return;
         }
 
-        const usersStr = localStorage.getItem('medflow_users_db');
-        const users = usersStr ? JSON.parse(usersStr) : {};
+        setLoading(true);
+        try {
+          let users = {};
+          if (supabaseClient) {
+            const { data } = await supabaseClient
+              .from('medflow_cloud_storage')
+              .select('*')
+              .eq('key', 'users_global_db')
+              .single();
+            if (data && data.value) users = data.value;
+          }
 
-        if (isRegistering) {
-          if (users[userTrimmed]) {
-            setError('Este usuário já existe. Faça login.');
-            return;
+          if (Object.keys(users).length === 0) {
+            const localUsers = localStorage.getItem('medflow_users_db');
+            if (localUsers) users = JSON.parse(localUsers);
           }
-          users[userTrimmed] = { password: passTrimmed };
-          localStorage.setItem('medflow_users_db', JSON.stringify(users));
-          onLogin({ username: userTrimmed });
-        } else {
-          if (users[userTrimmed] && users[userTrimmed].password !== passTrimmed) {
-            setError('Usuário ou senha incorretos.');
-            return;
-          }
-          if (!users[userTrimmed]) {
+
+          if (isRegistering) {
+            if (users[userTrimmed]) {
+              setError('Este usuário já existe. Faça login.');
+              setLoading(false);
+              return;
+            }
             users[userTrimmed] = { password: passTrimmed };
-            localStorage.setItem('medflow_users_db', JSON.stringify(users));
+          } else {
+            if (!users[userTrimmed]) {
+              // Auto-registra se não existir para facilitar o acesso global
+              users[userTrimmed] = { password: passTrimmed };
+            } else if (users[userTrimmed].password !== passTrimmed) {
+              setError('Usuário ou senha incorretos.');
+              setLoading(false);
+              return;
+            }
           }
+
+          // Salva globalmente no Supabase
+          if (supabaseClient) {
+            await supabaseClient
+              .from('medflow_cloud_storage')
+              .upsert([{ key: 'users_global_db', value: users, updated_at: new Date() }], { onConflict: 'key' });
+          }
+          localStorage.setItem('medflow_users_db', JSON.stringify(users));
+
           onLogin({ username: userTrimmed });
+        } catch (err) {
+          setError('Erro ao conectar com o servidor em nuvem.');
+        } finally {
+          setLoading(false);
         }
       };
 
@@ -186,7 +214,7 @@
                 <Activity className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-white tracking-tight">Med<span className="text-blue-400">Flow</span></h1>
-              <p className="text-slate-400 text-sm mt-2 text-center">Plataforma Inteligente com Backup em Nuvem</p>
+              <p className="text-slate-400 text-sm mt-2 text-center">Progresso Sincronizado em Nuvem Global</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -221,9 +249,10 @@
 
               <button
                 type="submit"
-                className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/30"
+                disabled={loading}
+                className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/30 disabled:opacity-50"
               >
-                {isRegistering ? 'Criar Conta e Entrar' : 'Entrar na Plataforma'}
+                {loading ? 'Carregando dados...' : (isRegistering ? 'Criar Conta e Entrar' : 'Entrar na Plataforma')}
               </button>
             </form>
 
@@ -280,15 +309,15 @@
                   if (userCloud.value.notes) setNotes(userCloud.value.notes);
                 }
               } catch (e) {
-                console.log("Modo offline ou tabela em nuvem pendente, usando cache local.");
+                console.log("Usando cache local.");
               }
             }
 
-            // Fallback / Cache local para garantir velocidade e redundância
-            const q = localStorage.getItem('medflow_questions_shared_v12');
+            // Fallback / Cache local
+            const q = localStorage.getItem('medflow_questions_shared_v13');
             if (q && questions.length === 0) setQuestions(JSON.parse(q));
             
-            const sq = localStorage.getItem('medflow_sim_questions_shared_v12');
+            const sq = localStorage.getItem('medflow_sim_questions_shared_v13');
             if (sq && simQuestions.length === 0) setSimQuestions(JSON.parse(sq));
 
             const p = localStorage.getItem(`medflow_progress_global_${currentUser.username}`);
@@ -309,13 +338,11 @@
       useEffect(() => {
         if (!isDataLoaded) return;
         try {
-          // Atualiza cache local
-          localStorage.setItem('medflow_questions_shared_v12', JSON.stringify(questions));
-          localStorage.setItem('medflow_sim_questions_shared_v12', JSON.stringify(simQuestions));
+          localStorage.setItem('medflow_questions_shared_v13', JSON.stringify(questions));
+          localStorage.setItem('medflow_sim_questions_shared_v13', JSON.stringify(simQuestions));
           localStorage.setItem(`medflow_progress_global_${currentUser.username}`, JSON.stringify(progress));
           localStorage.setItem(`medflow_notes_global_${currentUser.username}`, JSON.stringify(notes));
 
-          // Salva globalmente no Supabase para sincronização em nuvem
           if (supabaseClient) {
             setSyncStatus('Sincronizando...');
             supabaseClient
