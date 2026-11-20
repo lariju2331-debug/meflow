@@ -107,6 +107,14 @@
 
     const getAreaColor = (area) => AREA_COLORS[area] || AREA_COLORS['Geral'];
 
+    function buildUserFromSession(user) {
+      if (!user) return null;
+      const username =
+        user.user_metadata?.username ||
+        (user.email ? user.email.split('@')[0] : 'usuario');
+      return { id: user.id, username };
+    }
+
     function App() {
       const [currentUser, setCurrentUser] = useState(() => {
         try {
@@ -115,12 +123,40 @@
         } catch (e) { return null; }
       });
 
+      useEffect(() => {
+        if (!supabaseClient) return;
+
+        supabaseClient.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user) {
+            const userObj = buildUserFromSession(session.user);
+            sessionStorage.setItem('medflow_session_user', JSON.stringify(userObj));
+            setCurrentUser(userObj);
+          }
+        });
+
+        const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+          if (session?.user) {
+            const userObj = buildUserFromSession(session.user);
+            sessionStorage.setItem('medflow_session_user', JSON.stringify(userObj));
+            setCurrentUser(userObj);
+          } else {
+            sessionStorage.removeItem('medflow_session_user');
+            setCurrentUser(null);
+          }
+        });
+
+        return () => subscription.unsubscribe();
+      }, []);
+
       const handleLogin = (user) => {
         sessionStorage.setItem('medflow_session_user', JSON.stringify(user));
         setCurrentUser(user);
       };
 
-      const handleLogout = () => {
+      const handleLogout = async () => {
+        if (supabaseClient) {
+          await supabaseClient.auth.signOut();
+        }
         sessionStorage.removeItem('medflow_session_user');
         setCurrentUser(null);
       };
@@ -157,40 +193,55 @@
 
         setLoading(true);
         try {
-          let users = {};
-          const { data } = await supabaseClient
-            .from('medflow_cloud_storage')
-            .select('*')
-            .eq('key', 'users_global_db')
-            .single();
-          if (data && data.value) users = data.value;
+          const email = userTrimmed.includes('@') ? userTrimmed : `${userTrimmed}@medflow.app`;
+          const cleanUsername = email.split('@')[0];
 
           if (isRegistering) {
-            if (users[userTrimmed]) {
-              setError('Este usuário já existe. Faça login.');
+            const { data, error: signUpError } = await supabaseClient.auth.signUp({
+              email,
+              password: passTrimmed,
+              options: { data: { username: cleanUsername } }
+            });
+
+            if (signUpError) {
+              setError(signUpError.message);
               setLoading(false);
               return;
             }
-            users[userTrimmed] = { password: passTrimmed };
-          } else {
-            if (!users[userTrimmed]) {
-              setError('Usuário não encontrado. Cadastre-se primeiro.');
+
+            if (data?.user && data?.session) {
+              onLogin(buildUserFromSession(data.user));
+              return;
+            }
+
+            if (data?.user && !data?.session) {
+              setError('Conta criada. Confirme o e-mail ou desative "Confirm email" em Authentication > Providers > Email no Supabase.');
               setLoading(false);
               return;
-            } else if (users[userTrimmed].password !== passTrimmed) {
-              setError('Usuário ou senha incorretos.');
+            }
+          } else {
+            const { data, error: signInError } = await supabaseClient.auth.signInWithPassword({
+              email,
+              password: passTrimmed
+            });
+
+            if (signInError) {
+              setError(
+                signInError.message === 'Email not confirmed'
+                  ? 'E-mail não confirmado no Supabase.'
+                  : 'Usuário ou senha incorretos.'
+              );
               setLoading(false);
+              return;
+            }
+
+            if (data?.user) {
+              onLogin(buildUserFromSession(data.user));
               return;
             }
           }
-
-          await supabaseClient
-            .from('medflow_cloud_storage')
-            .upsert([{ key: 'users_global_db', value: users, updated_at: new Date() }], { onConflict: 'key' });
-
-          onLogin({ username: userTrimmed });
         } catch (err) {
-          setError('Erro ao conectar com o banco de dados global.');
+          setError('Erro ao conectar com o servidor de autenticação.');
         } finally {
           setLoading(false);
         }
@@ -211,18 +262,18 @@
               {error && (
                 <div className="p-3 bg-red-950/60 border border-red-900 text-red-300 text-sm rounded-xl flex items-center">
                   <AlertCircle className="w-4 h-4 mr-2 shrink-0" />
-                  {error}
+                  <span>{error}</span>
                 </div>
               )}
               
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Usuário</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Usuário ou E-mail</label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-4 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Seu nome de usuário"
+                  placeholder="Ex: junior ou junior@medflow.app"
                 />
               </div>
 
@@ -278,7 +329,6 @@
             return;
           }
           try {
-            // Carrega banco de dados base global (questões e simulados compartilhados)
             const { data: cloudData } = await supabaseClient
               .from('medflow_cloud_storage')
               .select('*')
@@ -290,7 +340,6 @@
               if (cloudData.value.simQuestions) setSimQuestions(cloudData.value.simQuestions);
             }
 
-            // Carrega progresso exclusivo atrelado ao login do usuário
             const { data: userCloud } = await supabaseClient
               .from('medflow_cloud_storage')
               .select('*')
@@ -313,7 +362,6 @@
         loadCloudData();
       }, [currentUser.username]);
 
-      // Sincroniza banco global (questões e simulados) sempre que qualquer usuário importar/alterar
       useEffect(() => {
         if (!isDataLoaded || !supabaseClient) return;
         setSyncStatus('Salvando no Banco Global...');
@@ -328,7 +376,6 @@
           });
       }, [questions, simQuestions, isDataLoaded]);
 
-      // Sincroniza progresso e anotações atrelados exclusivamente ao usuário logado
       useEffect(() => {
         if (!isDataLoaded || !supabaseClient) return;
         setSyncStatus('Salvando Progresso...');
