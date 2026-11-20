@@ -55,38 +55,145 @@
     const RechartsTooltip = RechartsLib.Tooltip || (props => null);
     const Legend = RechartsLib.Legend || (props => null);
 
-    const LucideIcons = window.lucideReact || {};
-    const getIcon = (name, props) => {
-      const IconComponent = LucideIcons[name];
-      if (IconComponent) return <IconComponent {...props} />;
-      return <span {...props}>•</span>;
-    };
+    const IconSvg = ({ children, className = "w-5 h-5", ...props }) => (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+        {...props}
+      >
+        {children}
+      </svg>
+    );
 
-    const Check = props => getIcon('Check', props);
-    const X = props => getIcon('X', props);
-    const Scissors = props => getIcon('Scissors', props);
-    const ChevronRight = props => getIcon('ChevronRight', props);
-    const ChevronLeft = props => getIcon('ChevronLeft', props);
-    const ChevronsRight = props => getIcon('ChevronsRight', props);
-    const ChevronsLeft = props => getIcon('ChevronsLeft', props);
-    const Lightbulb = props => getIcon('Lightbulb', props);
-    const AlertCircle = props => getIcon('AlertCircle', props);
-    const Save = props => getIcon('Save', props);
-    const Upload = props => getIcon('Upload', props);
-    const BarChart3 = props => getIcon('BarChart3', props);
-    const Target = props => getIcon('Target', props);
-    const BookOpen = props => getIcon('BookOpen', props);
-    const FileText = props => getIcon('FileText', props);
-    const Activity = props => getIcon('Activity', props);
-    const Stethoscope = props => getIcon('Stethoscope', props);
-    const Baby = props => getIcon('Baby', props);
-    const Users = props => getIcon('Users', props);
-    const HeartPulse = props => getIcon('HeartPulse', props);
-    const Archive = props => getIcon('Archive', props);
-    const LogOut = props => getIcon('LogOut', props);
-    const Key = props => getIcon('Key', props);
-    const User = props => getIcon('User', props);
-    const Cloud = props => getIcon('Cloud', props);
+    const Check = props => <IconSvg {...props}><polyline points="20 6 9 17 4 12" /></IconSvg>;
+    const X = props => <IconSvg {...props}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></IconSvg>;
+    const Scissors = props => (
+      <IconSvg {...props}>
+        <circle cx="6" cy="6" r="3" />
+        <circle cx="6" cy="18" r="3" />
+        <line x1="20" y1="4" x2="8.12" y2="15.88" />
+        <line x1="14.47" y1="14.48" x2="20" y2="20" />
+        <line x1="8.12" y1="8.12" x2="12" y2="12" />
+      </IconSvg>
+    );
+    const ChevronRight = props => <IconSvg {...props}><polyline points="9 18 15 12 9 6" /></IconSvg>;
+    const Lightbulb = props => (
+      <IconSvg {...props}>
+        <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
+        <path d="M9 18h6" />
+        <path d="M10 22h4" />
+      </IconSvg>
+    );
+    const AlertCircle = props => (
+      <IconSvg {...props}>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </IconSvg>
+    );
+    const Save = props => (
+      <IconSvg {...props}>
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+        <polyline points="17 21 17 13 7 13 7 21" />
+        <polyline points="7 3 7 8 15 8" />
+      </IconSvg>
+    );
+    const Upload = props => (
+      <IconSvg {...props}>
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </IconSvg>
+    );
+    const BarChart3 = props => (
+      <IconSvg {...props}>
+        <path d="M3 3v18h18" />
+        <path d="M18 17V9" />
+        <path d="M13 17V5" />
+        <path d="M8 17v-3" />
+      </IconSvg>
+    );
+    const Target = props => (
+      <IconSvg {...props}>
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="6" />
+        <circle cx="12" cy="12" r="2" />
+      </IconSvg>
+    );
+    const BookOpen = props => (
+      <IconSvg {...props}>
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+      </IconSvg>
+    );
+    const FileText = props => (
+      <IconSvg {...props}>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+        <polyline points="10 9 9 9 8 9" />
+      </IconSvg>
+    );
+    const Activity = props => (
+      <IconSvg {...props}>
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+      </IconSvg>
+    );
+    const Stethoscope = props => (
+      <IconSvg {...props}>
+        <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3" />
+        <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4" />
+        <circle cx="20" cy="10" r="2" />
+      </IconSvg>
+    );
+    const Baby = props => (
+      <IconSvg {...props}>
+        <path d="M9 12h.01" />
+        <path d="M15 12h.01" />
+        <path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5" />
+        <path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1" />
+      </IconSvg>
+    );
+    const Users = props => (
+      <IconSvg {...props}>
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </IconSvg>
+    );
+    const HeartPulse = props => (
+      <IconSvg {...props}>
+        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+        <path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27" />
+      </IconSvg>
+    );
+    const Archive = props => (
+      <IconSvg {...props}>
+        <polyline points="21 8 21 21 3 21 3 8" />
+        <rect x="1" y="3" width="22" height="5" />
+        <line x1="10" y1="12" x2="14" y2="12" />
+      </IconSvg>
+    );
+    const LogOut = props => (
+      <IconSvg {...props}>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline points="16 17 21 12 16 7" />
+        <line x1="21" y1="12" x2="9" y2="12" />
+      </IconSvg>
+    );
+    const Cloud = props => (
+      <IconSvg {...props}>
+        <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+      </IconSvg>
+    );
 
     const AREAS = [
       'Medicina da Família e Comunidade', 
@@ -248,19 +355,19 @@
       };
 
       return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-8">
-            <div className="flex flex-col items-center mb-8">
-              <div className="bg-blue-600 p-4 rounded-2xl shadow-lg shadow-blue-900/40 mb-4">
-                <Activity className="w-8 h-8 text-white" />
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8">
+            <div className="flex flex-col items-center mb-6 sm:mb-8">
+              <div className="bg-blue-600 p-3.5 sm:p-4 rounded-2xl shadow-lg shadow-blue-900/40 mb-4">
+                <Activity className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-white tracking-tight">Med<span className="text-blue-400">Flow</span></h1>
-              <p className="text-slate-400 text-sm mt-2 text-center">Banco Base Global & Progresso Individual em Nuvem</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Med<span className="text-blue-400">Flow</span></h1>
+              <p className="text-slate-400 text-xs sm:text-sm mt-2 text-center">Banco Base Global & Progresso Individual em Nuvem</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
               {error && (
-                <div className="p-3 bg-red-950/60 border border-red-900 text-red-300 text-sm rounded-xl flex items-center">
+                <div className="p-3 bg-red-950/60 border border-red-900 text-red-300 text-xs sm:text-sm rounded-xl flex items-center">
                   <AlertCircle className="w-4 h-4 mr-2 shrink-0" />
                   <span>{error}</span>
                 </div>
@@ -272,7 +379,7 @@
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-4 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full pl-4 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm sm:text-base"
                   placeholder="Ex: junior ou junior@medflow.app"
                 />
               </div>
@@ -283,7 +390,7 @@
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-4 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full pl-4 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm sm:text-base"
                   placeholder="Sua senha"
                 />
               </div>
@@ -291,7 +398,7 @@
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/30 disabled:opacity-50"
+                className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/30 disabled:opacity-50 min-h-[44px]"
               >
                 {loading ? 'Carregando dados...' : (isRegistering ? 'Criar Conta e Entrar' : 'Entrar na Plataforma')}
               </button>
@@ -301,7 +408,7 @@
               <button
                 type="button"
                 onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
-                className="text-slate-400 hover:text-blue-400 text-sm font-medium"
+                className="text-slate-400 hover:text-blue-400 text-xs sm:text-sm font-medium py-1 px-2"
               >
                 {isRegistering ? 'Já tem uma conta? Faça login' : 'Não tem conta? Cadastre-se'}
               </button>
@@ -465,36 +572,36 @@
       };
 
       if (!isDataLoaded) {
-        return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Carregando Banco Global...</div>;
+        return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 p-4 text-center">Carregando Banco Global...</div>;
       }
 
       return (
         <div className="min-h-screen bg-slate-950 font-sans text-slate-100">
           <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-md">
-            <div className="max-w-7xl mx-auto px-4">
-              <div className="flex justify-between h-16">
-                <div className="flex items-center space-x-2 mr-4">
-                  <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-900/40">
-                    <Activity className="w-5 h-5 text-white" />
+            <div className="max-w-7xl mx-auto px-2 sm:px-4">
+              <div className="flex justify-between h-14 sm:h-16 items-center">
+                <div className="flex items-center space-x-2 mr-2 sm:mr-4 shrink-0">
+                  <div className="bg-blue-600 p-1.5 sm:p-2 rounded-xl shadow-lg shadow-blue-900/40">
+                    <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                   </div>
-                  <span className="font-bold text-xl text-white tracking-tight hidden sm:block">Med<span className="text-blue-400">Flow</span></span>
+                  <span className="font-bold text-lg sm:text-xl text-white tracking-tight hidden md:block">Med<span className="text-blue-400">Flow</span></span>
                 </div>
-                <div className="flex space-x-1 sm:space-x-2 items-center overflow-x-auto no-scrollbar flex-1">
+                <div className="flex space-x-1 sm:space-x-2 items-center overflow-x-auto no-scrollbar flex-1 py-1">
                   <TabButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<Target />} label="Dashboard" />
                   <TabButton active={activeTab === 'cara'} onClick={() => setActiveTab('cara')} icon={<BarChart3 />} label="A Cara da Prova" />
                   <TabButton active={activeTab === 'uepa'} onClick={() => setActiveTab('uepa')} icon={<Archive />} label="UEPA PROVAS" />
                   <TabButton active={activeTab === 'exams'} onClick={() => setActiveTab('exams')} icon={<BookOpen />} label="Simulados" />
                   <TabButton active={activeTab === 'upload'} onClick={() => setActiveTab('upload')} icon={<Upload />} label="Importar" />
                 </div>
-                <div className="flex items-center ml-4 space-x-3 border-l border-slate-800 pl-3">
-                  <div className="hidden lg:flex items-center text-xs text-emerald-400 bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-900/50">
+                <div className="flex items-center ml-2 sm:ml-4 space-x-2 sm:space-x-3 border-l border-slate-800 pl-2 sm:pl-3 shrink-0">
+                  <div className="hidden xl:flex items-center text-xs text-emerald-400 bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-900/50">
                     <Cloud className="w-3.5 h-3.5 mr-1.5 animate-pulse" /> {syncStatus}
                   </div>
-                  <div className="hidden md:flex flex-col text-right">
-                    <span className="text-xs text-slate-500 font-medium">Logado</span>
-                    <span className="text-sm font-bold text-slate-200">{currentUser.username}</span>
+                  <div className="hidden sm:flex flex-col text-right">
+                    <span className="text-[11px] text-slate-500 font-medium leading-none">Logado</span>
+                    <span className="text-xs sm:text-sm font-bold text-slate-200">{currentUser.username}</span>
                   </div>
-                  <button onClick={onLogout} className="p-2 bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-xl" title="Sair">
+                  <button onClick={onLogout} className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-xl" title="Sair">
                     <LogOut className="w-4 h-4" />
                   </button>
                 </div>
@@ -502,7 +609,7 @@
             </div>
           </nav>
 
-          <main className="max-w-6xl mx-auto px-4 py-8">
+          <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
             {activeTab === 'dashboard' && <DashboardView uepaQuestions={questions} simQuestions={simQuestions} progress={progress} />}
             {activeTab === 'cara' && <CaraDaProvaView questions={questions} />}
             {activeTab === 'uepa' && <ExamsView questions={questions} progress={progress} setProgress={setProgress} notes={notes} setNotes={setNotes} titlePrefix="UEPA" isUepaView={true} />}
@@ -527,11 +634,11 @@
       return (
         <button
           onClick={onClick}
-          className={`flex items-center px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap
+          className={`flex items-center px-2.5 sm:px-3 py-2 min-h-[38px] rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap
             ${active ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-inner' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
         >
-          {React.cloneElement(icon, { className: 'w-4 h-4 sm:mr-2' })}
-          <span className="hidden sm:inline">{label}</span>
+          {React.cloneElement(icon, { className: 'w-4 h-4 md:mr-2' })}
+          <span className="hidden md:inline">{label}</span>
         </button>
       );
     }
@@ -599,32 +706,32 @@
       }, [stats.wrongSubthemes]);
 
       return (
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
           <div className="flex bg-slate-900 p-1.5 rounded-2xl w-full sm:w-fit border border-slate-800">
             <button 
               onClick={() => setDashboardType('provas')}
-              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold ${dashboardType === 'provas' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold ${dashboardType === 'provas' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
             >
               Dashboard UEPA Provas
             </button>
             <button 
               onClick={() => setDashboardType('simulados')}
-              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold ${dashboardType === 'simulados' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold ${dashboardType === 'simulados' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
             >
               Dashboard Simulados
             </button>
           </div>
 
-          <div className={`bg-gradient-to-r ${dashboardType === 'provas' ? 'from-blue-900 via-indigo-950 to-slate-900 border-blue-800/40' : 'from-indigo-900 via-purple-950 to-slate-900 border-indigo-800/40'} rounded-2xl p-8 text-white shadow-xl border`}>
-            <h1 className="text-3xl font-bold mb-2">
+          <div className={`bg-gradient-to-r ${dashboardType === 'provas' ? 'from-blue-900 via-indigo-950 to-slate-900 border-blue-800/40' : 'from-indigo-900 via-purple-950 to-slate-900 border-indigo-800/40'} rounded-2xl p-5 sm:p-8 text-white shadow-xl border`}>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">
               {dashboardType === 'provas' ? 'Painel de Desempenho: UEPA' : 'Painel de Desempenho: Simulados'}
             </h1>
-            <p className="text-blue-300/80">Atualizado dinamicamente de acordo com o seu progresso pessoal de respostas.</p>
+            <p className="text-blue-300/80 text-xs sm:text-base">Atualizado dinamicamente de acordo com o seu progresso pessoal de respostas.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg flex flex-col items-center justify-center">
-              <h3 className="text-lg font-bold text-slate-200 mb-2">Taxa de Acertos e Erros</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+            <div className="bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-lg flex flex-col items-center justify-center">
+              <h3 className="text-base sm:text-lg font-bold text-slate-200 mb-2">Taxa de Acertos e Erros</h3>
               
               {stats.totalAnswered > 0 ? (
                 <div className="h-44 w-full">
@@ -647,35 +754,35 @@
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="h-36 flex items-center justify-center text-slate-500 text-sm">
+                <div className="h-36 flex items-center justify-center text-slate-500 text-sm text-center px-2">
                   Responda questões para gerar o gráfico.
                 </div>
               )}
 
               <div className="text-center mt-3 pt-3 border-t border-slate-800 w-full">
-                <span className="text-3xl font-bold text-white">
+                <span className="text-2xl sm:text-3xl font-bold text-white">
                   {stats.totalAnswered > 0 ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100) : 0}%
                 </span>
                 <p className="text-xs text-slate-400 mt-1">Percentual de Acerto ({stats.totalCorrect}/{stats.totalAnswered})</p>
               </div>
             </div>
 
-            <div className="md:col-span-2 bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg">
-              <h3 className="text-lg font-bold text-slate-200 mb-6">Desempenho por Grande Área</h3>
-              <div className="space-y-5">
+            <div className="md:col-span-2 bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-lg">
+              <h3 className="text-base sm:text-lg font-bold text-slate-200 mb-4 sm:mb-6">Desempenho por Grande Área</h3>
+              <div className="space-y-4 sm:space-y-5">
                 {AREAS.map(area => {
                   const data = stats.areas[area];
                   const pct = data.answered > 0 ? Math.round((data.correct / data.answered) * 100) : 0;
                   return (
                     <div key={area}>
-                      <div className="flex justify-between items-center mb-2">
-                        <div className="flex items-center font-medium text-slate-300">
-                          <span style={{ color: getAreaColor(area) }} className="mr-2">{getAreaIcon(area)}</span>
-                          {area}
+                      <div className="flex justify-between items-center mb-1.5 sm:mb-2 gap-2">
+                        <div className="flex items-center font-medium text-slate-300 text-xs sm:text-sm">
+                          <span style={{ color: getAreaColor(area) }} className="mr-2 shrink-0">{getAreaIcon(area)}</span>
+                          <span>{area}</span>
                         </div>
-                        <div className="text-sm text-slate-400">
+                        <div className="text-xs sm:text-sm text-slate-400 shrink-0">
                           <span className="font-bold text-white">{data.correct}</span> / {data.answered} 
-                          <span className="ml-2">({pct}%)</span>
+                          <span className="ml-1.5">({pct}%)</span>
                         </div>
                       </div>
                       <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
@@ -688,11 +795,11 @@
             </div>
           </div>
 
-          <div className="border p-6 rounded-2xl bg-blue-950/40 border-blue-900/50">
-            <h4 className="font-bold text-lg text-blue-200 mb-3 flex items-center">
-              <Lightbulb className="w-5 h-5 mr-2 text-blue-400" /> Recomendações Inteligentes (Baseadas no seu Progresso)
+          <div className="border p-4 sm:p-6 rounded-2xl bg-blue-950/40 border-blue-900/50">
+            <h4 className="font-bold text-base sm:text-lg text-blue-200 mb-3 flex items-center">
+              <Lightbulb className="w-5 h-5 mr-2 text-blue-400 shrink-0" /> Recomendações Inteligentes (Baseadas no seu Progresso)
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
               {recommendationsList.map((rec, i) => (
                 <div key={i} className="bg-slate-900/80 border border-slate-800 p-4 rounded-xl">
                   <span className="text-xs font-bold px-2 py-1 bg-amber-500/20 text-amber-300 rounded-lg">{rec.interval}</span>
@@ -751,34 +858,34 @@
       }, [questions, selectedExamGroup, selectedArea]);
 
       return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
+          <div className="bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-xl">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-white flex items-center">
-                  <BarChart3 className="w-6 h-6 mr-2 text-blue-400" /> A Cara da Prova (Incidência de Subtemas)
+                <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center">
+                  <BarChart3 className="w-6 h-6 mr-2 text-blue-400 shrink-0" /> A Cara da Prova (Incidência de Subtemas)
                 </h2>
-                <p className="text-slate-400 text-sm mt-1">Análise percentual baseada exclusivamente nas provas oficiais da UEPA cadastradas no banco base.</p>
+                <p className="text-slate-400 text-xs sm:text-sm mt-1">Análise percentual baseada exclusivamente nas provas oficiais da UEPA cadastradas no banco base.</p>
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-slate-400 font-medium">Ano:</span>
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full lg:w-auto">
+                <div className="flex items-center space-x-2 flex-1 sm:flex-initial">
+                  <span className="text-xs text-slate-400 font-medium shrink-0">Ano:</span>
                   <select 
                     value={selectedExamGroup} 
                     onChange={e => setSelectedExamGroup(e.target.value)}
-                    className="px-4 py-2 border border-slate-700 rounded-xl text-sm bg-slate-800 text-slate-200 outline-none"
+                    className="w-full px-3 sm:px-4 py-2 border border-slate-700 rounded-xl text-xs sm:text-sm bg-slate-800 text-slate-200 outline-none"
                   >
                     {groupsList.map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
                 
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-slate-400 font-medium">Área:</span>
+                <div className="flex items-center space-x-2 flex-1 sm:flex-initial">
+                  <span className="text-xs text-slate-400 font-medium shrink-0">Área:</span>
                   <select 
                     value={selectedArea} 
                     onChange={e => setSelectedArea(e.target.value)}
-                    className="px-4 py-2 border border-slate-700 rounded-xl text-sm bg-slate-800 text-slate-200 outline-none"
+                    className="w-full px-3 sm:px-4 py-2 border border-slate-700 rounded-xl text-xs sm:text-sm bg-slate-800 text-slate-200 outline-none"
                   >
                     <option value="Todas">Todas as Grandes Áreas</option>
                     {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
@@ -788,16 +895,16 @@
             </div>
 
             {chartData.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center mt-6 pt-6 border-t border-slate-800">
-                <div className="lg:col-span-6 h-[420px] w-full flex items-center justify-center">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-center mt-6 pt-6 border-t border-slate-800">
+                <div className="lg:col-span-6 h-[300px] sm:h-[420px] w-full flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={chartData}
                         cx="50%"
                         cy="50%"
-                        outerRadius={140}
-                        innerRadius={50}
+                        outerRadius={110}
+                        innerRadius={40}
                         paddingAngle={3}
                         dataKey="count"
                         label={({ percentage }) => `${percentage}%`}
@@ -814,27 +921,27 @@
                   </ResponsiveContainer>
                 </div>
 
-                <div className="lg:col-span-6 space-y-3 max-h-[420px] overflow-y-auto pr-2 no-scrollbar">
-                  <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Ranking de Assuntos Mais Cobrados</h4>
+                <div className="lg:col-span-6 space-y-2.5 sm:space-y-3 max-h-[420px] overflow-y-auto pr-1 sm:pr-2 no-scrollbar">
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Ranking de Assuntos Mais Cobrados</h4>
                   {chartData.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3.5 bg-slate-950 rounded-xl border border-slate-800 hover:border-slate-700 transition-all">
-                      <div className="flex items-center space-x-3 mr-3">
-                        <div className="w-4 h-4 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: item.color }} />
+                    <div key={idx} className="flex items-center justify-between p-3 sm:p-3.5 bg-slate-950 rounded-xl border border-slate-800 hover:border-slate-700 transition-all">
+                      <div className="flex items-center space-x-3 mr-2 sm:mr-3">
+                        <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: item.color }} />
                         <div>
-                          <span className="text-sm font-semibold text-white block">{item.name}</span>
-                          <span className="text-xs text-slate-400">{item.area}</span>
+                          <span className="text-xs sm:text-sm font-semibold text-white block">{item.name}</span>
+                          <span className="text-[11px] sm:text-xs text-slate-400">{item.area}</span>
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className="text-base font-bold text-blue-400">{item.percentage}%</span>
-                        <span className="text-xs text-slate-500 block">({item.count} qts)</span>
+                        <span className="text-sm sm:text-base font-bold text-blue-400">{item.percentage}%</span>
+                        <span className="text-[11px] sm:text-xs text-slate-500 block">({item.count} qts)</span>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="py-24 text-center text-slate-500 bg-slate-950 rounded-2xl border border-slate-800 mt-4">
+              <div className="py-16 sm:py-24 px-4 text-center text-slate-500 bg-slate-950 rounded-2xl border border-slate-800 mt-4 text-sm">
                 Nenhuma prova da UEPA cadastrada para os filtros selecionados. Vá até a aba "Importar" para enviar os dados base.
               </div>
             )}
@@ -884,19 +991,19 @@
 
       if (!questions.length) {
         return (
-          <div className="text-center py-20 bg-slate-900 rounded-2xl border border-slate-800">
-            <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-slate-300">Nenhum item disponível no banco base</h2>
-            <p className="text-slate-500 mt-2">Vá até a aba "Importar" para cadastrar as questões que aparecerão para todos os usuários.</p>
+          <div className="text-center py-16 sm:py-20 px-4 bg-slate-900 rounded-2xl border border-slate-800">
+            <BookOpen className="w-14 h-14 sm:w-16 sm:h-16 text-slate-600 mx-auto mb-4" />
+            <h2 className="text-lg sm:text-xl font-bold text-slate-300">Nenhum item disponível no banco base</h2>
+            <p className="text-slate-500 mt-2 text-xs sm:text-sm">Vá até a aba "Importar" para cadastrar as questões que aparecerão para todos os usuários.</p>
           </div>
         );
       }
 
       if (!currentQ && currentQuestions.length === 0) {
         return (
-          <div className="text-center py-20 bg-slate-900 rounded-2xl border border-slate-800">
-            <h2 className="text-xl font-bold text-slate-300">Nenhuma questão para este filtro</h2>
-            <button onClick={() => { setSelectedGroup('Todos'); setSelectedArea('Todas'); }} className="mt-4 text-blue-400">Limpar Filtros</button>
+          <div className="text-center py-16 sm:py-20 px-4 bg-slate-900 rounded-2xl border border-slate-800">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-300">Nenhuma questão para este filtro</h2>
+            <button onClick={() => { setSelectedGroup('Todos'); setSelectedArea('Todas'); }} className="mt-4 text-blue-400 text-sm font-medium">Limpar Filtros</button>
           </div>
         );
       }
@@ -972,12 +1079,12 @@
 
       return (
         <div className="max-w-4xl mx-auto animate-in fade-in duration-300">
-          <div className="bg-slate-900 p-4 rounded-t-2xl border border-slate-800 border-b-0 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <div className="bg-slate-900 p-3 sm:p-4 rounded-t-2xl border border-slate-800 border-b-0 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 sm:gap-4">
+            <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 w-full md:w-auto">
               <select 
                 value={selectedGroup} 
                 onChange={e => { setSelectedGroup(e.target.value); setCurrentIndex(0); }}
-                className="px-4 py-2 border border-slate-700 rounded-xl text-sm font-medium bg-slate-800 text-slate-200 outline-none"
+                className="w-full sm:w-auto px-3 sm:px-4 py-2.5 border border-slate-700 rounded-xl text-xs sm:text-sm font-medium bg-slate-800 text-slate-200 outline-none"
               >
                 <option value="Todos">Todas as Provas</option>
                 {groupsList.filter(g => g !== 'Todos').map(g => <option key={g} value={g}>{titlePrefix}: {g}</option>)}
@@ -986,37 +1093,37 @@
               <select 
                 value={selectedArea} 
                 onChange={e => { setSelectedArea(e.target.value); setCurrentIndex(0); }}
-                className="px-4 py-2 border border-slate-700 rounded-xl text-sm font-medium bg-slate-800 text-slate-200 outline-none"
+                className="w-full sm:w-auto px-3 sm:px-4 py-2.5 border border-slate-700 rounded-xl text-xs sm:text-sm font-medium bg-slate-800 text-slate-200 outline-none"
               >
                 <option value="Todas">Todas as Áreas</option>
                 {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
 
-            <div className="flex items-center space-x-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700">
-              <button onClick={() => jumpIndex(-10)} disabled={currentIndex === 0} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 disabled:opacity-30"><ChevronsLeft className="w-5 h-5" /></button>
-              <button onClick={() => jumpIndex(-1)} disabled={currentIndex === 0} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-300 disabled:opacity-30"><ChevronLeft className="w-5 h-5" /></button>
-              <span className="px-3 font-semibold text-sm text-slate-200 whitespace-nowrap">{currentIndex + 1} / {currentQuestions.length}</span>
-              <button onClick={() => jumpIndex(1)} disabled={currentIndex === currentQuestions.length - 1} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-300 disabled:opacity-30"><ChevronRight className="w-5 h-5" /></button>
-              <button onClick={() => jumpIndex(10)} disabled={currentIndex === currentQuestions.length - 1} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 disabled:opacity-30"><ChevronsRight className="w-5 h-5" /></button>
+            <div className="flex items-center justify-between sm:justify-center space-x-1 sm:space-x-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700">
+              <button onClick={() => jumpIndex(-10)} disabled={currentIndex === 0} className="px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-300 font-bold text-xs sm:text-sm disabled:opacity-30" title="Voltar 10 questões">&lt;&lt;</button>
+              <button onClick={() => jumpIndex(-1)} disabled={currentIndex === 0} className="px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-200 font-bold text-xs sm:text-sm disabled:opacity-30" title="Voltar 1 questão">&lt;</button>
+              <span className="px-2 sm:px-3 font-semibold text-xs sm:text-sm text-slate-200 whitespace-nowrap">{currentIndex + 1} / {currentQuestions.length}</span>
+              <button onClick={() => jumpIndex(1)} disabled={currentIndex === currentQuestions.length - 1} className="px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-200 font-bold text-xs sm:text-sm disabled:opacity-30" title="Avançar 1 questão">&gt;</button>
+              <button onClick={() => jumpIndex(10)} disabled={currentIndex === currentQuestions.length - 1} className="px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-300 font-bold text-xs sm:text-sm disabled:opacity-30" title="Avançar 10 questões">&gt;&gt;</button>
             </div>
           </div>
 
-          <div className="bg-slate-900 p-6 md:p-10 rounded-b-2xl border border-slate-800 shadow-xl relative">
-            <div className="min-h-[400px]">
-              <div className="flex items-center space-x-3 mb-6">
+          <div className="bg-slate-900 p-4 sm:p-6 md:p-10 rounded-b-2xl border border-slate-800 shadow-xl relative">
+            <div className="min-h-[360px] sm:min-h-[400px]">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
                 <span className="px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm" style={{ backgroundColor: getAreaColor(currentQ.area) }}>{currentQ.area}</span>
-                <span className="text-slate-400 text-sm font-medium">{currentQ.subtheme}</span>
-                {currentQ.groupLabel && <span className="text-slate-500 text-sm font-medium border-l border-slate-700 pl-3">{currentQ.groupLabel}</span>}
+                <span className="text-slate-400 text-xs sm:text-sm font-medium">{currentQ.subtheme}</span>
+                {currentQ.groupLabel && <span className="text-slate-500 text-xs sm:text-sm font-medium border-l border-slate-700 pl-2.5 sm:pl-3">{currentQ.groupLabel}</span>}
               </div>
 
-              <p className="text-lg text-slate-100 leading-relaxed mb-8 font-medium whitespace-pre-line">{currentQ.text}</p>
+              <p className="text-base sm:text-lg text-slate-100 leading-relaxed mb-6 sm:mb-8 font-medium whitespace-pre-line">{currentQ.text}</p>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5 sm:space-y-3">
                 {currentQ.options.map((opt) => {
                   const letter = opt.id;
                   const isEliminated = eliminated[opt.id];
-                  let btnClass = "relative w-full text-left p-4 rounded-xl border transition-all flex items-start group ";
+                  let btnClass = "relative w-full text-left p-3.5 sm:p-4 rounded-xl border transition-all flex items-start group ";
                   
                   if (currentQ.isAnnulled) {
                     btnClass += "border-slate-800 bg-slate-950 opacity-50 cursor-not-allowed";
@@ -1037,16 +1144,16 @@
                       onClick={() => !isEliminated && setTempOptionId(opt.id)}
                       className={btnClass}
                     >
-                      <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold mr-4 transition-colors ${
+                      <div className={`shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center font-bold mr-3 sm:mr-4 text-xs sm:text-sm transition-colors ${
                         isConfirmed && opt.isCorrect ? 'bg-emerald-600 text-white' : 
                         isConfirmed && confirmedOptionId === opt.id ? 'bg-red-600 text-white' :
                         tempOptionId === opt.id ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'
                       }`}>
                         {letter}
                       </div>
-                      <span className={`flex-1 pt-1 ${isEliminated ? 'line-through opacity-50' : ''}`}>{opt.text}</span>
+                      <span className={`flex-1 pt-0.5 sm:pt-1 text-sm sm:text-base ${isEliminated ? 'line-through opacity-50' : ''}`}>{opt.text}</span>
                       {!isConfirmed && !currentQ.isAnnulled && (
-                        <div onClick={(e) => toggleEliminate(e, opt.id)} className="shrink-0 ml-2 p-2 rounded-full text-slate-500 hover:bg-slate-700 hover:text-slate-200" title="Descartar">
+                        <div onClick={(e) => toggleEliminate(e, opt.id)} className="shrink-0 ml-2 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-700 hover:text-slate-100" title="Riscar/Descartar alternativa">
                           <Scissors className="w-4 h-4" />
                         </div>
                       )}
@@ -1055,48 +1162,48 @@
                 })}
               </div>
 
-              <div className="mt-8 pt-6 border-t border-slate-800 flex justify-between items-center">
+              <div className="mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-slate-800 flex justify-between items-center">
                 {!isConfirmed && !currentQ.isAnnulled ? (
                   <button 
                     onClick={handleConfirm}
                     disabled={!tempOptionId}
-                    className="ml-auto flex items-center bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-500 disabled:opacity-40 shadow-lg shadow-blue-900/30"
+                    className="w-full sm:w-auto sm:ml-auto flex items-center justify-center bg-blue-600 text-white px-5 sm:px-6 py-3 min-h-[44px] rounded-xl font-bold hover:bg-blue-500 disabled:opacity-40 shadow-lg shadow-blue-900/30 text-sm sm:text-base"
                   >
                     <Check className="w-5 h-5 mr-2" /> Confirmar Resposta
                   </button>
                 ) : (
                   <div className="w-full space-y-4 animate-in slide-in-from-bottom-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-950 p-4 rounded-xl border border-slate-800">
-                      <div className="flex items-center mb-4 sm:mb-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-950 p-4 rounded-xl border border-slate-800 gap-3">
+                      <div className="flex items-center">
                         {currentQ.isAnnulled ? (
-                          <span className="flex items-center text-slate-400 font-bold"><AlertCircle className="w-5 h-5 mr-2" /> Questão Anulada</span>
+                          <span className="flex items-center text-slate-400 font-bold text-sm sm:text-base"><AlertCircle className="w-5 h-5 mr-2" /> Questão Anulada</span>
                         ) : currentQ.options.find(o => o.id === confirmedOptionId)?.isCorrect ? (
-                          <span className="flex items-center text-emerald-400 font-bold"><Check className="w-5 h-5 mr-2" /> Acertou!</span>
+                          <span className="flex items-center text-emerald-400 font-bold text-sm sm:text-base"><Check className="w-5 h-5 mr-2" /> Acertou!</span>
                         ) : (
-                          <span className="flex items-center text-red-400 font-bold"><X className="w-5 h-5 mr-2" /> Errou.</span>
+                          <span className="flex items-center text-red-400 font-bold text-sm sm:text-base"><X className="w-5 h-5 mr-2" /> Errou.</span>
                         )}
                       </div>
                       
-                      <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
                         <button 
                           onClick={getAIExplanation}
                           disabled={aiLoading}
-                          className="flex items-center justify-center bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-500 text-sm shadow-md disabled:opacity-70"
+                          className="flex items-center justify-center bg-indigo-600 text-white px-4 py-2.5 min-h-[40px] rounded-xl font-medium hover:bg-indigo-500 text-xs sm:text-sm shadow-md disabled:opacity-70"
                         >
                           <Lightbulb className="w-4 h-4 mr-2" /> {aiLoading ? 'Analisando...' : 'Explicar com IA'}
                         </button>
                         <button 
                           onClick={() => jumpIndex(1)}
                           disabled={currentIndex === currentQuestions.length - 1}
-                          className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-blue-500 text-sm shadow-md disabled:opacity-40"
+                          className="flex items-center justify-center bg-blue-600 text-white px-4 py-2.5 min-h-[40px] rounded-xl font-medium hover:bg-blue-500 text-xs sm:text-sm shadow-md disabled:opacity-40"
                         >
-                          Seguinte <ChevronRight className="w-4 h-4 ml-1" />
+                          Seguinte &gt;
                         </button>
                       </div>
                     </div>
 
                     {aiExplanation && (
-                      <div className="bg-indigo-950/60 border border-indigo-900/60 p-5 rounded-xl text-indigo-200 text-sm leading-relaxed animate-in fade-in">
+                      <div className="bg-indigo-950/60 border border-indigo-900/60 p-4 sm:p-5 rounded-xl text-indigo-200 text-xs sm:text-sm leading-relaxed animate-in fade-in">
                         <div className="flex items-center font-bold mb-2">
                           <Lightbulb className="w-5 h-5 mr-2 text-indigo-400" /> Explicação Especializada
                         </div>
@@ -1105,15 +1212,15 @@
                     )}
 
                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                      <h4 className="text-sm font-bold text-slate-300 mb-2 flex items-center"><FileText className="w-4 h-4 mr-2" /> Minhas Anotações Pessoais</h4>
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-300 mb-2 flex items-center"><FileText className="w-4 h-4 mr-2" /> Minhas Anotações Pessoais</h4>
                       <textarea
                         value={noteText}
                         onChange={(e) => setNoteText(e.target.value)}
                         placeholder="Escreva suas anotações..."
-                        className="w-full min-h-[90px] p-3 text-sm border border-slate-800 rounded-xl bg-slate-900 text-slate-200 outline-none"
+                        className="w-full min-h-[90px] p-3 text-xs sm:text-sm border border-slate-800 rounded-xl bg-slate-900 text-slate-200 outline-none"
                       />
                       <div className="flex justify-end mt-2">
-                        <button onClick={saveNote} className="flex items-center text-sm font-medium text-blue-400 hover:text-blue-300">
+                        <button onClick={saveNote} className="flex items-center text-xs sm:text-sm font-medium text-blue-400 hover:text-blue-300 py-1 px-2">
                           <Save className="w-4 h-4 mr-1" /> Salvar Anotação
                         </button>
                       </div>
@@ -1282,48 +1389,48 @@
       };
 
       return (
-        <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-300">
-          <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800 shadow-xl">
-            <div className="flex items-center mb-6">
-              <div className="bg-indigo-600/20 p-3 rounded-2xl mr-4 border border-indigo-500/30">
-                <Upload className="w-6 h-6 text-indigo-400" />
+        <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 animate-in fade-in duration-300">
+          <div className="bg-slate-900 p-4 sm:p-8 rounded-2xl border border-slate-800 shadow-xl">
+            <div className="flex items-center mb-5 sm:mb-6">
+              <div className="bg-indigo-600/20 p-2.5 sm:p-3 rounded-2xl mr-3 sm:mr-4 border border-indigo-500/30 shrink-0">
+                <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">Banco de Dados Base (Global e Aberto)</h2>
-                <p className="text-slate-400 text-sm mt-1">Qualquer usuário pode importar questões livremente. Tudo fica salvo imediatamente na nuvem para todos.</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-white">Banco de Dados Base (Global e Aberto)</h2>
+                <p className="text-slate-400 text-xs sm:text-sm mt-1">Qualquer usuário pode importar questões livremente. Tudo fica salvo imediatamente na nuvem para todos.</p>
               </div>
             </div>
 
-            <div className="bg-slate-950 border border-slate-800 rounded-xl p-6 mb-6">
-              <p className="text-sm font-medium text-slate-300 mb-2">Padrão Obrigatório (9 Colunas separadas por Pipe |):</p>
-              <code className="block bg-slate-900 p-3 rounded-lg text-slate-300 text-xs font-mono overflow-x-auto border border-slate-800">
+            <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 sm:p-6 mb-5 sm:mb-6">
+              <p className="text-xs sm:text-sm font-medium text-slate-300 mb-2">Padrão Obrigatório (9 Colunas separadas por Pipe |):</p>
+              <code className="block bg-slate-900 p-3 rounded-lg text-slate-300 text-[11px] sm:text-xs font-mono overflow-x-auto border border-slate-800">
                 Área | Subtema | Enunciado da questão | Alt A | Alt B | Alt C | Alt D | Alt E | Gabarito (A/B/C/D/E ou Anulada)
               </code>
             </div>
 
             <textarea 
-              className="w-full h-52 p-4 border border-slate-800 rounded-xl font-mono text-sm bg-slate-950 text-slate-200 outline-none mb-6 resize-y"
+              className="w-full h-44 sm:h-52 p-3.5 sm:p-4 border border-slate-800 rounded-xl font-mono text-xs sm:text-sm bg-slate-950 text-slate-200 outline-none mb-5 sm:mb-6 resize-y"
               placeholder="Cole as questões usando | como separador..."
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
             />
 
             {errorMsg && (
-              <div className="mb-6 p-3 bg-red-950/60 border border-red-900 text-red-300 text-sm rounded-xl flex items-center">
+              <div className="mb-5 sm:mb-6 p-3 bg-red-950/60 border border-red-900 text-red-300 text-xs sm:text-sm rounded-xl flex items-center">
                 <AlertCircle className="w-4 h-4 mr-2 shrink-0" /> {errorMsg}
               </div>
             )}
 
             {successMsg && (
-              <div className="mb-6 p-3 bg-emerald-950/60 border border-emerald-900 text-emerald-300 text-sm rounded-xl flex items-center">
+              <div className="mb-5 sm:mb-6 p-3 bg-emerald-950/60 border border-emerald-900 text-emerald-300 text-xs sm:text-sm rounded-xl flex items-center">
                 <Check className="w-4 h-4 mr-2 shrink-0" /> {successMsg}
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-800">
-              <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 flex flex-col justify-between">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-4 border-t border-slate-800">
+              <div className="bg-slate-950 p-4 sm:p-5 rounded-xl border border-slate-800 flex flex-col justify-between">
                 <div>
-                  <h3 className="font-bold text-white mb-3 flex items-center text-sm">
+                  <h3 className="font-bold text-white mb-3 flex items-center text-xs sm:text-sm">
                     <Archive className="w-4 h-4 mr-2 text-blue-400" /> Destino: UEPA PROVAS (Base)
                   </h3>
                   <div className="mb-4">
@@ -1336,14 +1443,14 @@
                     />
                   </div>
                 </div>
-                <button disabled={saving} onClick={handleImportUepa} className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-500 text-sm disabled:opacity-50">
+                <button disabled={saving} onClick={handleImportUepa} className="w-full bg-blue-600 text-white font-bold py-2.5 min-h-[42px] rounded-xl hover:bg-blue-500 text-xs sm:text-sm disabled:opacity-50">
                   {saving ? 'Salvando...' : 'Importar para Banco Base UEPA'}
                 </button>
               </div>
 
-              <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 flex flex-col justify-between">
+              <div className="bg-slate-950 p-4 sm:p-5 rounded-xl border border-slate-800 flex flex-col justify-between">
                 <div>
-                  <h3 className="font-bold text-white mb-3 flex items-center text-sm">
+                  <h3 className="font-bold text-white mb-3 flex items-center text-xs sm:text-sm">
                     <BookOpen className="w-4 h-4 mr-2 text-indigo-400" /> Destino: Simulados (Base)
                   </h3>
                   <div className="grid grid-cols-2 gap-2 mb-4">
@@ -1367,18 +1474,18 @@
                     </div>
                   </div>
                 </div>
-                <button disabled={saving} onClick={handleImportSimulado} className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl hover:bg-indigo-500 text-sm disabled:opacity-50">
+                <button disabled={saving} onClick={handleImportSimulado} className="w-full bg-indigo-600 text-white font-bold py-2.5 min-h-[42px] rounded-xl hover:bg-indigo-500 text-xs sm:text-sm disabled:opacity-50">
                   {saving ? 'Salvando...' : 'Importar para Banco Base Simulados'}
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl mt-8">
-            <h3 className="text-lg font-bold text-slate-200 mb-2">Exclusão de Questões do Banco Base</h3>
-            <p className="text-slate-400 text-sm mb-6">Selecione o ano e a grande área desejada para remover itens do banco global compartilhado.</p>
+          <div className="bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-xl mt-6 sm:mt-8">
+            <h3 className="text-base sm:text-lg font-bold text-slate-200 mb-2">Exclusão de Questões do Banco Base</h3>
+            <p className="text-slate-400 text-xs sm:text-sm mb-5 sm:mb-6">Selecione o ano e a grande área desejada para remover itens do banco global compartilhado.</p>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-5 sm:mb-6">
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1.5">Ano / Prova (Ex: 2026)</label>
                 <input 
@@ -1402,21 +1509,21 @@
               </div>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-5 sm:mb-6">
               <button 
                 disabled={saving}
                 onClick={handleFilteredDelete} 
-                className="w-full bg-rose-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-rose-500 transition-colors shadow-lg shadow-rose-900/30 text-sm disabled:opacity-50"
+                className="w-full bg-rose-600 text-white font-bold py-3 min-h-[44px] px-4 rounded-xl hover:bg-rose-500 transition-colors shadow-lg shadow-rose-900/30 text-xs sm:text-sm disabled:opacity-50"
               >
                 Apagar Questões do Banco Base Correspondentes aos Filtros
               </button>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-slate-800">
-              <button onClick={clearProgress} className="flex-1 bg-slate-800 border border-slate-700 text-red-400 font-bold py-3 px-4 rounded-xl hover:bg-slate-700 text-sm">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-slate-800">
+              <button onClick={clearProgress} className="flex-1 bg-slate-800 border border-slate-700 text-red-400 font-bold py-3 min-h-[44px] px-4 rounded-xl hover:bg-slate-700 text-xs sm:text-sm">
                 Zerar Meu Progresso Pessoal
               </button>
-              <button onClick={clearData} className="flex-1 bg-red-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-red-500 text-sm shadow-lg shadow-red-900/30">
+              <button onClick={clearData} className="flex-1 bg-red-600 text-white font-bold py-3 min-h-[44px] px-4 rounded-xl hover:bg-red-500 text-xs sm:text-sm shadow-lg shadow-red-900/30">
                 Apagar Todo o Banco Global
               </button>
             </div>
