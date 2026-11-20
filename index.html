@@ -12,18 +12,12 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   
-  <!-- Recharts -->
+  <!-- PropTypes & Recharts -->
   <script src="https://unpkg.com/prop-types@15.7.2/prop-types.min.js"></script>
   <script src="https://unpkg.com/recharts/umd/Recharts.min.js"></script>
-  
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
 
   <!-- Supabase Client JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <!-- Babel -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <style>
     .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -37,1502 +31,1871 @@
   </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:14px;">
+      Iniciando MedFlow...
+    </div>
+  </div>
 
-  <script type="text/babel">
-    const { useState, useEffect, useMemo, useRef } = React;
-    
-    // Configuração Supabase
-    const SUPABASE_URL = 'https://naoaeuqotcjzxagllkiz.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_9KR6IDS7LL12evXMX0cHXw_HojK1e7z';
-    const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+  <script>
+    window.addEventListener('error', function (event) {
+      var root = document.getElementById('root');
+      if (root && (!root.innerHTML || root.innerHTML.indexOf('Iniciando MedFlow') !== -1)) {
+        root.innerHTML =
+          '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;background:#020617;color:#f8fafc;">' +
+          '<div style="max-width:460px;width:100%;background:#0f172a;border:1px solid #7f1d1d;border-radius:16px;padding:24px;">' +
+          '<h2 style="margin:0 0 8px;color:#f87171;font-size:18px;">Erro ao carregar o MedFlow</h2>' +
+          '<p style="margin:0 0 16px;color:#cbd5e1;font-size:13px;word-break:break-word;">' +
+          (event && event.message ? event.message : 'Falha ao carregar scripts externos.') +
+          '</p>' +
+          '<button onclick="location.reload()" style="width:100%;background:#2563eb;color:#fff;border:none;border-radius:12px;padding:10px;font-weight:bold;cursor:pointer;">Recarregar</button>' +
+          '</div></div>';
+      }
+    });
 
-    const RechartsLib = window.Recharts || {};
-    const PieChart = RechartsLib.PieChart || (props => <div {...props} />);
-    const Pie = RechartsLib.Pie || (props => null);
-    const Cell = RechartsLib.Cell || (props => null);
-    const ResponsiveContainer = RechartsLib.ResponsiveContainer || (props => <div style={{width: '100%', height: '100%'}} {...props} />);
-    const RechartsTooltip = RechartsLib.Tooltip || (props => null);
-    const Legend = RechartsLib.Legend || (props => null);
-
-    const IconSvg = ({ children, className = "w-5 h-5", ...props }) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        {...props}
-      >
-        {children}
-      </svg>
-    );
-
-    const Check = props => <IconSvg {...props}><polyline points="20 6 9 17 4 12" /></IconSvg>;
-    const X = props => <IconSvg {...props}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></IconSvg>;
-    const Scissors = props => (
-      <IconSvg {...props}>
-        <circle cx="6" cy="6" r="3" />
-        <circle cx="6" cy="18" r="3" />
-        <line x1="20" y1="4" x2="8.12" y2="15.88" />
-        <line x1="14.47" y1="14.48" x2="20" y2="20" />
-        <line x1="8.12" y1="8.12" x2="12" y2="12" />
-      </IconSvg>
-    );
-    const ChevronRight = props => <IconSvg {...props}><polyline points="9 18 15 12 9 6" /></IconSvg>;
-    const Lightbulb = props => (
-      <IconSvg {...props}>
-        <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
-        <path d="M9 18h6" />
-        <path d="M10 22h4" />
-      </IconSvg>
-    );
-    const AlertCircle = props => (
-      <IconSvg {...props}>
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </IconSvg>
-    );
-    const Save = props => (
-      <IconSvg {...props}>
-        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-        <polyline points="17 21 17 13 7 13 7 21" />
-        <polyline points="7 3 7 8 15 8" />
-      </IconSvg>
-    );
-    const Upload = props => (
-      <IconSvg {...props}>
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-        <polyline points="17 8 12 3 7 8" />
-        <line x1="12" y1="3" x2="12" y2="15" />
-      </IconSvg>
-    );
-    const BarChart3 = props => (
-      <IconSvg {...props}>
-        <path d="M3 3v18h18" />
-        <path d="M18 17V9" />
-        <path d="M13 17V5" />
-        <path d="M8 17v-3" />
-      </IconSvg>
-    );
-    const Target = props => (
-      <IconSvg {...props}>
-        <circle cx="12" cy="12" r="10" />
-        <circle cx="12" cy="12" r="6" />
-        <circle cx="12" cy="12" r="2" />
-      </IconSvg>
-    );
-    const BookOpen = props => (
-      <IconSvg {...props}>
-        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-      </IconSvg>
-    );
-    const FileText = props => (
-      <IconSvg {...props}>
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-        <line x1="16" y1="13" x2="8" y2="13" />
-        <line x1="16" y1="17" x2="8" y2="17" />
-        <polyline points="10 9 9 9 8 9" />
-      </IconSvg>
-    );
-    const Activity = props => (
-      <IconSvg {...props}>
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-      </IconSvg>
-    );
-    const Stethoscope = props => (
-      <IconSvg {...props}>
-        <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3" />
-        <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4" />
-        <circle cx="20" cy="10" r="2" />
-      </IconSvg>
-    );
-    const Baby = props => (
-      <IconSvg {...props}>
-        <path d="M9 12h.01" />
-        <path d="M15 12h.01" />
-        <path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5" />
-        <path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1" />
-      </IconSvg>
-    );
-    const Users = props => (
-      <IconSvg {...props}>
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </IconSvg>
-    );
-    const HeartPulse = props => (
-      <IconSvg {...props}>
-        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-        <path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27" />
-      </IconSvg>
-    );
-    const Archive = props => (
-      <IconSvg {...props}>
-        <polyline points="21 8 21 21 3 21 3 8" />
-        <rect x="1" y="3" width="22" height="5" />
-        <line x1="10" y1="12" x2="14" y2="12" />
-      </IconSvg>
-    );
-    const LogOut = props => (
-      <IconSvg {...props}>
-        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-        <polyline points="16 17 21 12 16 7" />
-        <line x1="21" y1="12" x2="9" y2="12" />
-      </IconSvg>
-    );
-    const Cloud = props => (
-      <IconSvg {...props}>
-        <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
-      </IconSvg>
-    );
-
-    const AREAS = [
-      'Medicina da Família e Comunidade', 
-      'Clínica Médica', 
-      'Cirurgia Geral', 
-      'Ginecologia & Obstetrícia', 
-      'Pediatria'
-    ];
-
-    const AREA_COLORS = {
-      'Medicina da Família e Comunidade': '#fbbf24', 
-      'Clínica Médica': '#60a5fa', 
-      'Cirurgia Geral': '#f87171', 
-      'Ginecologia & Obstetrícia': '#a78bfa', 
-      'Pediatria': '#34d399', 
-      'Geral': '#94a3b8' 
-    };
-
-    const getAreaColor = (area) => AREA_COLORS[area] || AREA_COLORS['Geral'];
-
-    function buildUserFromSession(user) {
-      if (!user) return null;
-      const username =
-        user.user_metadata?.username ||
-        (user.email ? user.email.split('@')[0] : 'usuario');
-      return { id: user.id, username };
-    }
-
-    function App() {
-      const [currentUser, setCurrentUser] = useState(() => {
-        try {
-          const saved = sessionStorage.getItem('medflow_session_user');
-          return saved ? JSON.parse(saved) : null;
-        } catch (e) { return null; }
-      });
-
-      useEffect(() => {
-        if (!supabaseClient) return;
-
-        supabaseClient.auth.getSession().then(({ data: { session } }) => {
-          if (session?.user) {
-            const userObj = buildUserFromSession(session.user);
-            sessionStorage.setItem('medflow_session_user', JSON.stringify(userObj));
-            setCurrentUser(userObj);
-          }
-        });
-
-        const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-          if (session?.user) {
-            const userObj = buildUserFromSession(session.user);
-            sessionStorage.setItem('medflow_session_user', JSON.stringify(userObj));
-            setCurrentUser(userObj);
-          } else {
-            sessionStorage.removeItem('medflow_session_user');
-            setCurrentUser(null);
-          }
-        });
-
-        return () => subscription.unsubscribe();
-      }, []);
-
-      const handleLogin = (user) => {
-        sessionStorage.setItem('medflow_session_user', JSON.stringify(user));
-        setCurrentUser(user);
-      };
-
-      const handleLogout = async () => {
-        if (supabaseClient) {
-          await supabaseClient.auth.signOut();
-        }
-        sessionStorage.removeItem('medflow_session_user');
-        setCurrentUser(null);
-      };
-
-      if (!currentUser) {
-        return <LoginView onLogin={handleLogin} />;
+    (function () {
+      if (!window.React || !window.ReactDOM) {
+        throw new Error('React não foi carregado. Verifique sua conexão com a internet.');
       }
 
-      return <MainApp currentUser={currentUser} onLogout={handleLogout} />;
-    }
+      var e = React.createElement;
+      var useState = React.useState;
+      var useEffect = React.useEffect;
+      var useMemo = React.useMemo;
+      var useRef = React.useRef;
 
-    function LoginView({ onLogin }) {
-      const [isRegistering, setIsRegistering] = useState(false);
-      const [username, setUsername] = useState('');
-      const [password, setPassword] = useState('');
-      const [error, setError] = useState('');
-      const [loading, setLoading] = useState(false);
+      // Configuração Supabase
+      var SUPABASE_URL = 'https://naoaeuqotcjzxagllkiz.supabase.co';
+      var SUPABASE_ANON_KEY = 'sb_publishable_9KR6IDS7LL12evXMX0cHXw_HojK1e7z';
+      var supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-      const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        const userTrimmed = username.trim().toLowerCase();
-        const passTrimmed = password.trim();
+      var RechartsLib = window.Recharts || {};
+      var PieChart = RechartsLib.PieChart || function (props) { return e('div', props); };
+      var Pie = RechartsLib.Pie || function () { return null; };
+      var Cell = RechartsLib.Cell || function () { return null; };
+      var ResponsiveContainer = RechartsLib.ResponsiveContainer || function (props) {
+        return e('div', Object.assign({ style: { width: '100%', height: '100%' } }, props));
+      };
+      var RechartsTooltip = RechartsLib.Tooltip || function () { return null; };
 
-        if (!userTrimmed || !passTrimmed) {
-          setError('Preencha todos os campos.');
-          return;
-        }
+      function IconSvg(props, children) {
+        var merged = Object.assign({
+          xmlns: 'http://www.w3.org/2000/svg',
+          viewBox: '0 0 24 24',
+          fill: 'none',
+          stroke: 'currentColor',
+          strokeWidth: '2',
+          strokeLinecap: 'round',
+          strokeLinejoin: 'round',
+          className: (props && props.className) || 'w-5 h-5'
+        }, props);
+        return e.apply(null, ['svg', merged].concat(children));
+      }
 
-        if (!supabaseClient) {
-          setError('Erro: Cliente Supabase não inicializado.');
-          return;
-        }
-
-        setLoading(true);
-        try {
-          const email = userTrimmed.includes('@') ? userTrimmed : `${userTrimmed}@medflow.app`;
-          const cleanUsername = email.split('@')[0];
-
-          if (isRegistering) {
-            const { data, error: signUpError } = await supabaseClient.auth.signUp({
-              email,
-              password: passTrimmed,
-              options: { data: { username: cleanUsername } }
-            });
-
-            if (signUpError) {
-              setError(signUpError.message);
-              setLoading(false);
-              return;
-            }
-
-            if (data?.user && data?.session) {
-              onLogin(buildUserFromSession(data.user));
-              return;
-            }
-
-            if (data?.user && !data?.session) {
-              setError('Conta criada. Confirme o e-mail ou desative "Confirm email" em Authentication > Providers > Email no Supabase.');
-              setLoading(false);
-              return;
-            }
-          } else {
-            const { data, error: signInError } = await supabaseClient.auth.signInWithPassword({
-              email,
-              password: passTrimmed
-            });
-
-            if (signInError) {
-              setError(
-                signInError.message === 'Email not confirmed'
-                  ? 'E-mail não confirmado no Supabase.'
-                  : 'Usuário ou senha incorretos.'
-              );
-              setLoading(false);
-              return;
-            }
-
-            if (data?.user) {
-              onLogin(buildUserFromSession(data.user));
-              return;
-            }
-          }
-        } catch (err) {
-          setError('Erro ao conectar com o servidor de autenticação.');
-        } finally {
-          setLoading(false);
-        }
+      var Check = function (props) {
+        return IconSvg(props, [e('polyline', { key: 1, points: '20 6 9 17 4 12' })]);
+      };
+      var XIcon = function (props) {
+        return IconSvg(props, [
+          e('line', { key: 1, x1: '18', y1: '6', x2: '6', y2: '18' }),
+          e('line', { key: 2, x1: '6', y1: '6', x2: '18', y2: '18' })
+        ]);
+      };
+      var Scissors = function (props) {
+        return IconSvg(props, [
+          e('circle', { key: 1, cx: '6', cy: '6', r: '3' }),
+          e('circle', { key: 2, cx: '6', cy: '18', r: '3' }),
+          e('line', { key: 3, x1: '20', y1: '4', x2: '8.12', y2: '15.88' }),
+          e('line', { key: 4, x1: '14.47', y1: '14.48', x2: '20', y2: '20' }),
+          e('line', { key: 5, x1: '8.12', y1: '8.12', x2: '12', y2: '12' })
+        ]);
+      };
+      var ReviewCheckIcon = function (props) {
+        var checked = !!(props && props.checked);
+        var cls = (props && props.className) || 'w-6 h-6';
+        return e('svg', {
+          xmlns: 'http://www.w3.org/2000/svg',
+          viewBox: '0 0 28 28',
+          fill: 'none',
+          className: cls
+        }, [
+          e('rect', {
+            key: 1,
+            x: '3',
+            y: '7',
+            width: '17',
+            height: '17',
+            rx: '3',
+            fill: checked ? '#10b981' : '#f1f5f9',
+            stroke: checked ? '#34d399' : '#94a3b8',
+            strokeWidth: '2'
+          }),
+          checked ? e('path', {
+            key: 2,
+            d: 'M7.5 14.5L11.5 18.5L24.5 5.5',
+            stroke: '#ffffff',
+            strokeWidth: '3.2',
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round'
+          }) : null
+        ]);
+      };
+      var BookOpenTextIcon = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z' }),
+          e('path', { key: 2, d: 'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z' }),
+          e('path', { key: 3, d: 'M6 8h2' }),
+          e('path', { key: 4, d: 'M6 12h2' }),
+          e('path', { key: 5, d: 'M16 8h2' }),
+          e('path', { key: 6, d: 'M16 12h2' })
+        ]);
+      };
+      var Lightbulb = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5' }),
+          e('path', { key: 2, d: 'M9 18h6' }),
+          e('path', { key: 3, d: 'M10 22h4' })
+        ]);
+      };
+      var AlertCircle = function (props) {
+        return IconSvg(props, [
+          e('circle', { key: 1, cx: '12', cy: '12', r: '10' }),
+          e('line', { key: 2, x1: '12', y1: '8', x2: '12', y2: '12' }),
+          e('line', { key: 3, x1: '12', y1: '16', x2: '12.01', y2: '16' })
+        ]);
+      };
+      var Save = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z' }),
+          e('polyline', { key: 2, points: '17 21 17 13 7 13 7 21' }),
+          e('polyline', { key: 3, points: '7 3 7 8 15 8' })
+        ]);
+      };
+      var Upload = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' }),
+          e('polyline', { key: 2, points: '17 8 12 3 7 8' }),
+          e('line', { key: 3, x1: '12', y1: '3', x2: '12', y2: '15' })
+        ]);
+      };
+      var BarChart3 = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M3 3v18h18' }),
+          e('path', { key: 2, d: 'M18 17V9' }),
+          e('path', { key: 3, d: 'M13 17V5' }),
+          e('path', { key: 4, d: 'M8 17v-3' })
+        ]);
+      };
+      var Target = function (props) {
+        return IconSvg(props, [
+          e('circle', { key: 1, cx: '12', cy: '12', r: '10' }),
+          e('circle', { key: 2, cx: '12', cy: '12', r: '6' }),
+          e('circle', { key: 3, cx: '12', cy: '12', r: '2' })
+        ]);
+      };
+      var BookOpen = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z' }),
+          e('path', { key: 2, d: 'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z' })
+        ]);
+      };
+      var FileText = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }),
+          e('polyline', { key: 2, points: '14 2 14 8 20 8' }),
+          e('line', { key: 3, x1: '16', y1: '13', x2: '8', y2: '13' }),
+          e('line', { key: 4, x1: '16', y1: '17', x2: '8', y2: '17' }),
+          e('polyline', { key: 5, points: '10 9 9 9 8 9' })
+        ]);
+      };
+      var Activity = function (props) {
+        return IconSvg(props, [e('polyline', { key: 1, points: '22 12 18 12 15 21 9 3 6 12 2 12' })]);
+      };
+      var Stethoscope = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3' }),
+          e('path', { key: 2, d: 'M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4' }),
+          e('circle', { key: 3, cx: '20', cy: '10', r: '2' })
+        ]);
+      };
+      var Baby = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M9 12h.01' }),
+          e('path', { key: 2, d: 'M15 12h.01' }),
+          e('path', { key: 3, d: 'M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5' }),
+          e('path', { key: 4, d: 'M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1' })
+        ]);
+      };
+      var Users = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2' }),
+          e('circle', { key: 2, cx: '9', cy: '7', r: '4' }),
+          e('path', { key: 3, d: 'M23 21v-2a4 4 0 0 0-3-3.87' }),
+          e('path', { key: 4, d: 'M16 3.13a4 4 0 0 1 0 7.75' })
+        ]);
+      };
+      var HeartPulse = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z' }),
+          e('path', { key: 2, d: 'M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27' })
+        ]);
+      };
+      var Archive = function (props) {
+        return IconSvg(props, [
+          e('polyline', { key: 1, points: '21 8 21 21 3 21 3 8' }),
+          e('rect', { key: 2, x: '1', y: '3', width: '22', height: '5' }),
+          e('line', { key: 3, x1: '10', y1: '12', x2: '14', y2: '12' })
+        ]);
+      };
+      var LogOut = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4' }),
+          e('polyline', { key: 2, points: '16 17 21 12 16 7' }),
+          e('line', { key: 3, x1: '21', y1: '12', x2: '9', y2: '12' })
+        ]);
+      };
+      var Cloud = function (props) {
+        return IconSvg(props, [e('path', { key: 1, d: 'M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z' })]);
       };
 
-      return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8">
-            <div className="flex flex-col items-center mb-6 sm:mb-8">
-              <div className="bg-blue-600 p-3.5 sm:p-4 rounded-2xl shadow-lg shadow-blue-900/40 mb-4">
-                <Activity className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Med<span className="text-blue-400">Flow</span></h1>
-              <p className="text-slate-400 text-xs sm:text-sm mt-2 text-center">Banco Base Global & Progresso Individual em Nuvem</p>
-            </div>
+      var AREAS = [
+        'Medicina da Família e Comunidade',
+        'Clínica Médica',
+        'Cirurgia Geral',
+        'Ginecologia & Obstetrícia',
+        'Pediatria'
+      ];
 
-            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
-              {error && (
-                <div className="p-3 bg-red-950/60 border border-red-900 text-red-300 text-xs sm:text-sm rounded-xl flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-2 shrink-0" />
-                  <span>{error}</span>
-                </div>
-              )}
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Usuário ou E-mail</label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-4 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm sm:text-base"
-                  placeholder="Ex: junior ou junior@medflow.app"
-                />
-              </div>
+      var AREA_COLORS = {
+        'Medicina da Família e Comunidade': '#fbbf24',
+        'Clínica Médica': '#60a5fa',
+        'Cirurgia Geral': '#f87171',
+        'Ginecologia & Obstetrícia': '#a78bfa',
+        'Pediatria': '#34d399',
+        'Geral': '#94a3b8'
+      };
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Senha</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-4 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm sm:text-base"
-                  placeholder="Sua senha"
-                />
-              </div>
+      function getAreaColor(area) {
+        return AREA_COLORS[area] || AREA_COLORS['Geral'];
+      }
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/30 disabled:opacity-50 min-h-[44px]"
-              >
-                {loading ? 'Carregando dados...' : (isRegistering ? 'Criar Conta e Entrar' : 'Entrar na Plataforma')}
-              </button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
-                className="text-slate-400 hover:text-blue-400 text-xs sm:text-sm font-medium py-1 px-2"
-              >
-                {isRegistering ? 'Já tem uma conta? Faça login' : 'Não tem conta? Cadastre-se'}
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    function MainApp({ currentUser, onLogout }) {
-      const [activeTab, setActiveTab] = useState('dashboard');
-      const [isDataLoaded, setIsDataLoaded] = useState(false);
-      const [syncStatus, setSyncStatus] = useState('Conectando ao Banco Global...');
-      const canAutoSaveGlobal = useRef(false);
-      const canAutoSaveUser = useRef(false);
-      
-      const [questions, setQuestions] = useState([]);
-      const [simQuestions, setSimQuestions] = useState([]);
-      const [progress, setProgress] = useState({});
-      const [notes, setNotes] = useState({});
-
-      const persistGlobalDb = async (nextQuestions, nextSimQuestions) => {
-        if (!supabaseClient) {
-          throw new Error('Cliente Supabase não inicializado.');
+      function startOfDay(dateInput) {
+        var d = dateInput ? new Date(dateInput) : new Date();
+        if (isNaN(d.getTime())) {
+          var now = new Date();
+          return new Date(now.getFullYear(), now.getMonth(), now.getDate());
         }
-        setSyncStatus('Salvando no Banco Global...');
-        const { error } = await supabaseClient
-          .from('medflow_cloud_storage')
-          .upsert([
-            {
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      }
+
+      function addDays(baseDate, days) {
+        return new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + days);
+      }
+
+      function formatShortDate(dateObj) {
+        return dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      }
+
+      function cleanTextNoReview(str) {
+        return (str || '').replace(/\brevis[aã][oõ]e?s?\b/gi, '').replace(/\s+/g, ' ').trim();
+      }
+
+      function buildSummaryWithoutReviewWord(question, correctOpt) {
+        var subtheme = (question.subtheme || '').trim();
+        var gabaritoText = ((correctOpt && correctOpt.text) || '')
+          .replace(/^[A-E]\)\s*/i, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (gabaritoText && subtheme && subtheme.toLowerCase() !== 'geral') {
+          var gCurto = gabaritoText.length > 78 ? gabaritoText.slice(0, 78).trim() + '...' : gabaritoText;
+          return cleanTextNoReview(subtheme) + ': ' + cleanTextNoReview(gCurto);
+        }
+        if (gabaritoText) {
+          var gCurto2 = gabaritoText.length > 96 ? gabaritoText.slice(0, 96).trim() + '...' : gabaritoText;
+          return cleanTextNoReview(gCurto2);
+        }
+        if (subtheme && subtheme.toLowerCase() !== 'geral') {
+          return cleanTextNoReview(subtheme);
+        }
+        var frase = (question.text || 'Conduta clínica').replace(/^\d+[\)\.\-]\s*/, '').split(/[.?!]\s+/)[0];
+        var fCurto = frase.length > 96 ? frase.slice(0, 96).trim() + '...' : frase;
+        return cleanTextNoReview(fCurto);
+      }
+
+      function buildFullReviewText(question, correctOpt) {
+        var subtheme = (question.subtheme || 'Geral').trim();
+        var gabaritoText = ((correctOpt && correctOpt.text) || '').replace(/^[A-E]\)\s*/i, '').replace(/\s+/g, ' ').trim();
+        var correctLetter = (correctOpt && correctOpt.id) ? ('Alternativa ' + correctOpt.id) : 'Gabarito registrado';
+        if (gabaritoText) {
+          return subtheme + ' — ' + correctLetter + ': ' + gabaritoText;
+        }
+        return subtheme + ' — ' + correctLetter;
+      }
+
+      function buildUserFromSession(user) {
+        if (!user) return null;
+        var username =
+          (user.user_metadata && user.user_metadata.username) ||
+          (user.email ? user.email.split('@')[0] : 'usuario');
+        return { id: user.id, username: username };
+      }
+
+      function App() {
+        var stateUser = useState(function () {
+          try {
+            var saved = sessionStorage.getItem('medflow_session_user');
+            return saved ? JSON.parse(saved) : null;
+          } catch (err) { return null; }
+        });
+        var currentUser = stateUser[0];
+        var setCurrentUser = stateUser[1];
+
+        useEffect(function () {
+          if (!supabaseClient) return;
+
+          supabaseClient.auth.getSession().then(function (res) {
+            var session = res && res.data && res.data.session;
+            if (session && session.user) {
+              var userObj = buildUserFromSession(session.user);
+              sessionStorage.setItem('medflow_session_user', JSON.stringify(userObj));
+              setCurrentUser(userObj);
+            }
+          });
+
+          var authSub = supabaseClient.auth.onAuthStateChange(function (_event, session) {
+            if (session && session.user) {
+              var userObj = buildUserFromSession(session.user);
+              sessionStorage.setItem('medflow_session_user', JSON.stringify(userObj));
+              setCurrentUser(userObj);
+            } else {
+              sessionStorage.removeItem('medflow_session_user');
+              setCurrentUser(null);
+            }
+          });
+
+          return function () {
+            if (authSub && authSub.data && authSub.data.subscription) {
+              authSub.data.subscription.unsubscribe();
+            }
+          };
+        }, []);
+
+        function handleLogin(user) {
+          sessionStorage.setItem('medflow_session_user', JSON.stringify(user));
+          setCurrentUser(user);
+        }
+
+        function handleLogout() {
+          if (supabaseClient) {
+            supabaseClient.auth.signOut();
+          }
+          sessionStorage.removeItem('medflow_session_user');
+          setCurrentUser(null);
+        }
+
+        if (!currentUser) {
+          return e(LoginView, { onLogin: handleLogin });
+        }
+
+        return e(MainApp, { currentUser: currentUser, onLogout: handleLogout });
+      }
+
+      function LoginView(props) {
+        var onLogin = props.onLogin;
+        var sReg = useState(false); var isRegistering = sReg[0]; var setIsRegistering = sReg[1];
+        var sUser = useState(''); var username = sUser[0]; var setUsername = sUser[1];
+        var sPass = useState(''); var password = sPass[0]; var setPassword = sPass[1];
+        var sErr = useState(''); var error = sErr[0]; var setError = sErr[1];
+        var sLoad = useState(false); var loading = sLoad[0]; var setLoading = sLoad[1];
+
+        function handleSubmit(ev) {
+          ev.preventDefault();
+          setError('');
+          var userTrimmed = username.trim().toLowerCase();
+          var passTrimmed = password.trim();
+
+          if (!userTrimmed || !passTrimmed) {
+            setError('Preencha todos os campos.');
+            return;
+          }
+
+          if (!supabaseClient) {
+            setError('Erro: Cliente Supabase não inicializado.');
+            return;
+          }
+
+          setLoading(true);
+          var email = userTrimmed.indexOf('@') !== -1 ? userTrimmed : (userTrimmed + '@medflow.app');
+          var cleanUsername = email.split('@')[0];
+
+          if (isRegistering) {
+            supabaseClient.auth.signUp({
+              email: email,
+              password: passTrimmed,
+              options: { data: { username: cleanUsername } }
+            }).then(function (res) {
+              setLoading(false);
+              if (res.error) {
+                setError(res.error.message);
+                return;
+              }
+              if (res.data && res.data.user && res.data.session) {
+                onLogin(buildUserFromSession(res.data.user));
+                return;
+              }
+              if (res.data && res.data.user && !res.data.session) {
+                setError('Conta criada. Confirme o e-mail ou desative "Confirm email" no painel do Supabase.');
+              }
+            }).catch(function () {
+              setLoading(false);
+              setError('Erro ao conectar com o servidor de autenticação.');
+            });
+          } else {
+            supabaseClient.auth.signInWithPassword({
+              email: email,
+              password: passTrimmed
+            }).then(function (res) {
+              setLoading(false);
+              if (res.error) {
+                setError(
+                  res.error.message === 'Email not confirmed'
+                    ? 'E-mail não confirmado no Supabase.'
+                    : 'Usuário ou senha incorretos.'
+                );
+                return;
+              }
+              if (res.data && res.data.user) {
+                onLogin(buildUserFromSession(res.data.user));
+              }
+            }).catch(function () {
+              setLoading(false);
+              setError('Erro ao conectar com o servidor de autenticação.');
+            });
+          }
+        }
+
+        return e('div', { className: 'min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6' },
+          e('div', { className: 'w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8' },
+            e('div', { className: 'flex flex-col items-center mb-6 sm:mb-8' },
+              e('div', { className: 'bg-blue-600 p-3.5 sm:p-4 rounded-2xl shadow-lg shadow-blue-900/40 mb-4' },
+                e(Activity, { className: 'w-7 h-7 sm:w-8 sm:h-8 text-white' })
+              ),
+              e('h1', { className: 'text-2xl sm:text-3xl font-bold text-white tracking-tight' },
+                'Med', e('span', { className: 'text-blue-400' }, 'Flow')
+              ),
+              e('p', { className: 'text-slate-400 text-xs sm:text-sm mt-2 text-center' },
+                'Banco Base Global & Progresso Individual em Nuvem'
+              )
+            ),
+            e('form', { onSubmit: handleSubmit, className: 'space-y-4 sm:space-y-5' },
+              error ? e('div', { className: 'p-3 bg-red-950/60 border border-red-900 text-red-300 text-xs sm:text-sm rounded-xl flex items-center' },
+                e(AlertCircle, { className: 'w-4 h-4 mr-2 shrink-0' }),
+                e('span', null, error)
+              ) : null,
+              e('div', null,
+                e('label', { className: 'block text-sm font-medium text-slate-300 mb-1.5 ml-1' }, 'Usuário ou E-mail'),
+                e('input', {
+                  type: 'text',
+                  value: username,
+                  onChange: function (ev) { setUsername(ev.target.value); },
+                  className: 'w-full pl-4 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm sm:text-base',
+                  placeholder: 'Ex: junior ou junior@medflow.app'
+                })
+              ),
+              e('div', null,
+                e('label', { className: 'block text-sm font-medium text-slate-300 mb-1.5 ml-1' }, 'Senha'),
+                e('input', {
+                  type: 'password',
+                  value: password,
+                  onChange: function (ev) { setPassword(ev.target.value); },
+                  className: 'w-full pl-4 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm sm:text-base',
+                  placeholder: 'Sua senha'
+                })
+              ),
+              e('button', {
+                type: 'submit',
+                disabled: loading,
+                className: 'w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/30 disabled:opacity-50 min-h-[44px]'
+              }, loading ? 'Carregando dados...' : (isRegistering ? 'Criar Conta e Entrar' : 'Entrar na Plataforma'))
+            ),
+            e('div', { className: 'mt-6 text-center' },
+              e('button', {
+                type: 'button',
+                onClick: function () { setIsRegistering(!isRegistering); setError(''); },
+                className: 'text-slate-400 hover:text-blue-400 text-xs sm:text-sm font-medium py-1 px-2'
+              }, isRegistering ? 'Já tem uma conta? Faça login' : 'Não tem conta? Cadastre-se')
+            )
+          )
+        );
+      }
+
+      function MainApp(props) {
+        var currentUser = props.currentUser;
+        var onLogout = props.onLogout;
+
+        var sTab = useState('dashboard'); var activeTab = sTab[0]; var setActiveTab = sTab[1];
+        var sLoaded = useState(false); var isDataLoaded = sLoaded[0]; var setIsDataLoaded = sLoaded[1];
+        var sSync = useState('Conectando ao Banco Global...'); var syncStatus = sSync[0]; var setSyncStatus = sSync[1];
+        var canAutoSaveGlobal = useRef(false);
+        var canAutoSaveUser = useRef(false);
+
+        var sQ = useState([]); var questions = sQ[0]; var setQuestions = sQ[1];
+        var sSimQ = useState([]); var simQuestions = sSimQ[0]; var setSimQuestions = sSimQ[1];
+        var sProg = useState({}); var progress = sProg[0]; var setProgress = sProg[1];
+        var sErrD = useState({}); var errorDates = sErrD[0]; var setErrorDates = sErrD[1];
+        var sChkR = useState({}); var checkedReviews = sChkR[0]; var setCheckedReviews = sChkR[1];
+        var sNotes = useState({}); var notes = sNotes[0]; var setNotes = sNotes[1];
+
+        function persistGlobalDb(nextQuestions, nextSimQuestions) {
+          if (!supabaseClient) {
+            return Promise.reject(new Error('Cliente Supabase não inicializado.'));
+          }
+          setSyncStatus('Salvando no Banco Global...');
+          return supabaseClient
+            .from('medflow_cloud_storage')
+            .upsert([{
               key: 'global_db',
               value: { questions: nextQuestions, simQuestions: nextSimQuestions },
               updated_at: new Date().toISOString()
-            }
-          ], { onConflict: 'key' });
-
-        if (error) {
-          setSyncStatus(`Erro Global: ${error.message}`);
-          throw new Error(`Falha ao salvar no banco global: ${error.message}`);
+            }], { onConflict: 'key' })
+            .then(function (res) {
+              if (res.error) {
+                setSyncStatus('Erro Global: ' + res.error.message);
+                throw new Error('Falha ao salvar no banco global: ' + res.error.message);
+              }
+              setSyncStatus('Banco Global Ativo');
+            });
         }
-        setSyncStatus('Banco Global Ativo');
-      };
 
-      const persistUserStorage = async (nextProgress, nextNotes) => {
-        if (!supabaseClient) return;
-        setSyncStatus('Salvando Progresso...');
-        const { error } = await supabaseClient
-          .from('medflow_cloud_storage')
-          .upsert([
-            {
-              key: `user_global_${currentUser.username}`,
-              value: { progress: nextProgress, notes: nextNotes },
+        function persistUserStorage(nextProgress, nextNotes, nextErrorDates, nextCheckedReviews) {
+          if (!supabaseClient) return Promise.resolve();
+          setSyncStatus('Salvando Progresso...');
+          return supabaseClient
+            .from('medflow_cloud_storage')
+            .upsert([{
+              key: 'user_global_' + currentUser.username,
+              value: {
+                progress: nextProgress,
+                notes: nextNotes,
+                errorDates: nextErrorDates,
+                checkedReviews: nextCheckedReviews
+              },
               updated_at: new Date().toISOString()
-            }
-          ], { onConflict: 'key' });
-
-        if (error) {
-          console.error('Erro ao salvar progresso:', error.message);
-          setSyncStatus(`Erro Progresso: ${error.message}`);
-        } else {
-          setSyncStatus('Banco Global Ativo');
+            }], { onConflict: 'key' })
+            .then(function (res) {
+              if (res.error) {
+                setSyncStatus('Erro Progresso: ' + res.error.message);
+              } else {
+                setSyncStatus('Banco Global Ativo');
+              }
+            });
         }
-      };
 
-      useEffect(() => {
-        let active = true;
-        canAutoSaveGlobal.current = false;
-        canAutoSaveUser.current = false;
+        useEffect(function () {
+          var active = true;
+          canAutoSaveGlobal.current = false;
+          canAutoSaveUser.current = false;
 
-        async function loadCloudData() {
           if (!supabaseClient) {
             setSyncStatus('Erro de Conexão Cloud');
             setIsDataLoaded(true);
             return;
           }
-          try {
-            const { data: cloudData, error: globalErr } = await supabaseClient
-              .from('medflow_cloud_storage')
-              .select('*')
-              .eq('key', 'global_db')
-              .maybeSingle();
 
+          Promise.all([
+            supabaseClient.from('medflow_cloud_storage').select('*').eq('key', 'global_db').maybeSingle(),
+            supabaseClient.from('medflow_cloud_storage').select('*').eq('key', 'user_global_' + currentUser.username).maybeSingle()
+          ]).then(function (results) {
             if (!active) return;
+            var gRes = results[0];
+            var uRes = results[1];
 
-            if (globalErr) {
-              console.error('Erro ao ler global_db:', globalErr.message);
-              setSyncStatus(`Erro Leitura: ${globalErr.message}`);
+            if (gRes.error) {
+              setSyncStatus('Erro Leitura: ' + gRes.error.message);
             } else {
-              if (cloudData && cloudData.value) {
-                setQuestions(Array.isArray(cloudData.value.questions) ? cloudData.value.questions : []);
-                setSimQuestions(Array.isArray(cloudData.value.simQuestions) ? cloudData.value.simQuestions : []);
+              if (gRes.data && gRes.data.value) {
+                setQuestions(Array.isArray(gRes.data.value.questions) ? gRes.data.value.questions : []);
+                setSimQuestions(Array.isArray(gRes.data.value.simQuestions) ? gRes.data.value.simQuestions : []);
               }
               canAutoSaveGlobal.current = true;
               setSyncStatus('Banco Global Ativo');
             }
 
-            const { data: userCloud, error: userErr } = await supabaseClient
-              .from('medflow_cloud_storage')
-              .select('*')
-              .eq('key', `user_global_${currentUser.username}`)
-              .maybeSingle();
-
-            if (!active) return;
-
-            if (userErr) {
-              console.error('Erro ao ler progresso do usuário:', userErr.message);
-            } else {
-              if (userCloud && userCloud.value) {
-                setProgress(userCloud.value.progress && typeof userCloud.value.progress === 'object' ? userCloud.value.progress : {});
-                setNotes(userCloud.value.notes && typeof userCloud.value.notes === 'object' ? userCloud.value.notes : {});
+            if (!uRes.error) {
+              if (uRes.data && uRes.data.value) {
+                var uv = uRes.data.value;
+                setProgress(uv.progress && typeof uv.progress === 'object' ? uv.progress : {});
+                setNotes(uv.notes && typeof uv.notes === 'object' ? uv.notes : {});
+                setErrorDates(uv.errorDates && typeof uv.errorDates === 'object' ? uv.errorDates : {});
+                setCheckedReviews(uv.checkedReviews && typeof uv.checkedReviews === 'object' ? uv.checkedReviews : {});
               }
               canAutoSaveUser.current = true;
             }
-          } catch (e) {
-            console.error("Erro ao carregar dados globais", e);
-            if (active) setSyncStatus('Erro ao Sincronizar');
-          } finally {
-            if (active) setIsDataLoaded(true);
+            setIsDataLoaded(true);
+          }).catch(function () {
+            if (active) {
+              setSyncStatus('Erro ao Sincronizar');
+              setIsDataLoaded(true);
+            }
+          });
+
+          return function () { active = false; };
+        }, [currentUser.username]);
+
+        var isFirstGlobalRender = useRef(true);
+        useEffect(function () {
+          if (!isDataLoaded || !canAutoSaveGlobal.current) return;
+          if (isFirstGlobalRender.current) {
+            isFirstGlobalRender.current = false;
+            return;
           }
-        }
-        loadCloudData();
-        return () => { active = false; };
-      }, [currentUser.username]);
+          persistGlobalDb(questions, simQuestions).catch(function () {});
+        }, [questions, simQuestions, isDataLoaded]);
 
-      const isFirstGlobalRender = useRef(true);
-      useEffect(() => {
-        if (!isDataLoaded || !canAutoSaveGlobal.current) return;
-        if (isFirstGlobalRender.current) {
-          isFirstGlobalRender.current = false;
-          return;
-        }
-        persistGlobalDb(questions, simQuestions).catch(err => console.error(err.message));
-      }, [questions, simQuestions, isDataLoaded]);
+        var isFirstUserRender = useRef(true);
+        useEffect(function () {
+          if (!isDataLoaded || !canAutoSaveUser.current) return;
+          if (isFirstUserRender.current) {
+            isFirstUserRender.current = false;
+            return;
+          }
+          persistUserStorage(progress, notes, errorDates, checkedReviews);
+        }, [progress, notes, errorDates, checkedReviews, isDataLoaded, currentUser.username]);
 
-      const isFirstUserRender = useRef(true);
-      useEffect(() => {
-        if (!isDataLoaded || !canAutoSaveUser.current) return;
-        if (isFirstUserRender.current) {
-          isFirstUserRender.current = false;
-          return;
-        }
-        persistUserStorage(progress, notes);
-      }, [progress, notes, isDataLoaded, currentUser.username]);
+        var allQuestionsMap = useMemo(function () {
+          var map = {};
+          questions.concat(simQuestions).forEach(function (q) {
+            map[q.id] = q;
+          });
+          return map;
+        }, [questions, simQuestions]);
 
-      const clearData = async () => {
-        try {
-          await persistGlobalDb([], []);
-          setQuestions([]);
-          setSimQuestions([]);
+        function handleSetProgress(nextProgress) {
+          var todayIso = new Date().toISOString();
+          setErrorDates(function (prev) {
+            var updated = Object.assign({}, prev);
+            Object.keys(nextProgress).forEach(function (qId) {
+              var optId = nextProgress[qId];
+              var q = allQuestionsMap[qId];
+              if (!q || q.isAnnulled) return;
+              var correctOpt = q.options.find(function (o) { return o.isCorrect; });
+              var isCorrect = correctOpt && optId === correctOpt.id;
+              if (!isCorrect && !updated[qId]) {
+                updated[qId] = todayIso;
+              } else if (isCorrect) {
+                delete updated[qId];
+              }
+            });
+            return updated;
+          });
+          setProgress(nextProgress);
+        }
+
+        function handleToggleReviewDone(reviewKey) {
+          setCheckedReviews(function (prev) {
+            var next = Object.assign({}, prev);
+            next[reviewKey] = !next[reviewKey];
+            return next;
+          });
+        }
+
+        function clearData() {
+          persistGlobalDb([], []).then(function () {
+            setQuestions([]);
+            setSimQuestions([]);
+            setProgress({});
+            setNotes({});
+            setErrorDates({});
+            setCheckedReviews({});
+          }).catch(function (err) {
+            alert(err.message);
+          });
+        }
+
+        function clearProgress() {
           setProgress({});
           setNotes({});
-        } catch (err) {
-          alert(err.message);
+          setErrorDates({});
+          setCheckedReviews({});
+          persistUserStorage({}, {}, {}, {});
         }
-      };
 
-      const clearProgress = async () => {
-        setProgress({});
-        setNotes({});
-        await persistUserStorage({}, {});
-      };
+        if (!isDataLoaded) {
+          return e('div', { className: 'min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 p-4 text-center' },
+            'Carregando Banco Global...'
+          );
+        }
 
-      if (!isDataLoaded) {
-        return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 p-4 text-center">Carregando Banco Global...</div>;
+        return e('div', { className: 'min-h-screen bg-slate-950 font-sans text-slate-100' },
+          e('nav', { className: 'bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-md' },
+            e('div', { className: 'max-w-7xl mx-auto px-2 sm:px-4' },
+              e('div', { className: 'flex justify-between h-14 sm:h-16 items-center' },
+                e('div', { className: 'flex items-center space-x-2 mr-2 sm:mr-4 shrink-0' },
+                  e('div', { className: 'bg-blue-600 p-1.5 sm:p-2 rounded-xl shadow-lg shadow-blue-900/40' },
+                    e(Activity, { className: 'w-4 h-4 sm:w-5 sm:h-5 text-white' })
+                  ),
+                  e('span', { className: 'font-bold text-lg sm:text-xl text-white tracking-tight hidden md:block' },
+                    'Med', e('span', { className: 'text-blue-400' }, 'Flow')
+                  )
+                ),
+                e('div', { className: 'flex space-x-1 sm:space-x-2 items-center overflow-x-auto no-scrollbar flex-1 py-1' },
+                  e(TabButton, { active: activeTab === 'dashboard', onClick: function () { setActiveTab('dashboard'); }, icon: e(Target), label: 'Dashboard' }),
+                  e(TabButton, { active: activeTab === 'cara', onClick: function () { setActiveTab('cara'); }, icon: e(BarChart3), label: 'A Cara da Prova' }),
+                  e(TabButton, { active: activeTab === 'uepa', onClick: function () { setActiveTab('uepa'); }, icon: e(Archive), label: 'UEPA PROVAS' }),
+                  e(TabButton, { active: activeTab === 'exams', onClick: function () { setActiveTab('exams'); }, icon: e(BookOpen), label: 'Simulados' }),
+                  e(TabButton, { active: activeTab === 'upload', onClick: function () { setActiveTab('upload'); }, icon: e(Upload), label: 'Importar' })
+                ),
+                e('div', { className: 'flex items-center ml-2 sm:ml-4 space-x-2 sm:space-x-3 border-l border-slate-800 pl-2 sm:pl-3 shrink-0' },
+                  e('div', { className: 'hidden xl:flex items-center text-xs text-emerald-400 bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-900/50' },
+                    e(Cloud, { className: 'w-3.5 h-3.5 mr-1.5 animate-pulse' }), ' ', syncStatus
+                  ),
+                  e('div', { className: 'hidden sm:flex flex-col text-right' },
+                    e('span', { className: 'text-[11px] text-slate-500 font-medium leading-none' }, 'Logado'),
+                    e('span', { className: 'text-xs sm:text-sm font-bold text-slate-200' }, currentUser.username)
+                  ),
+                  e('button', {
+                    onClick: onLogout,
+                    className: 'p-2 min-w-[38px] min-h-[38px] flex items-center justify-center bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-xl',
+                    title: 'Sair'
+                  }, e(LogOut, { className: 'w-4 h-4' }))
+                )
+              )
+            )
+          ),
+          e('main', { className: 'max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8' },
+            activeTab === 'dashboard' ? e(DashboardView, {
+              uepaQuestions: questions,
+              simQuestions: simQuestions,
+              progress: progress,
+              errorDates: errorDates,
+              checkedReviews: checkedReviews,
+              onToggleReviewDone: handleToggleReviewDone
+            }) : null,
+            activeTab === 'cara' ? e(CaraDaProvaView, { questions: questions }) : null,
+            activeTab === 'uepa' ? e(ExamsView, {
+              questions: questions,
+              progress: progress,
+              setProgress: handleSetProgress,
+              notes: notes,
+              setNotes: setNotes,
+              titlePrefix: 'UEPA',
+              isUepaView: true
+            }) : null,
+            activeTab === 'exams' ? e(ExamsView, {
+              questions: simQuestions,
+              progress: progress,
+              setProgress: handleSetProgress,
+              notes: notes,
+              setNotes: setNotes,
+              titlePrefix: 'Simulado',
+              isUepaView: false
+            }) : null,
+            activeTab === 'upload' ? e(UploadView, {
+              questions: questions,
+              setQuestions: setQuestions,
+              simQuestions: simQuestions,
+              setSimQuestions: setSimQuestions,
+              persistGlobalDb: persistGlobalDb,
+              clearData: clearData,
+              clearProgress: clearProgress
+            }) : null
+          )
+        );
       }
 
-      return (
-        <div className="min-h-screen bg-slate-950 font-sans text-slate-100">
-          <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-md">
-            <div className="max-w-7xl mx-auto px-2 sm:px-4">
-              <div className="flex justify-between h-14 sm:h-16 items-center">
-                <div className="flex items-center space-x-2 mr-2 sm:mr-4 shrink-0">
-                  <div className="bg-blue-600 p-1.5 sm:p-2 rounded-xl shadow-lg shadow-blue-900/40">
-                    <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                  </div>
-                  <span className="font-bold text-lg sm:text-xl text-white tracking-tight hidden md:block">Med<span className="text-blue-400">Flow</span></span>
-                </div>
-                <div className="flex space-x-1 sm:space-x-2 items-center overflow-x-auto no-scrollbar flex-1 py-1">
-                  <TabButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<Target />} label="Dashboard" />
-                  <TabButton active={activeTab === 'cara'} onClick={() => setActiveTab('cara')} icon={<BarChart3 />} label="A Cara da Prova" />
-                  <TabButton active={activeTab === 'uepa'} onClick={() => setActiveTab('uepa')} icon={<Archive />} label="UEPA PROVAS" />
-                  <TabButton active={activeTab === 'exams'} onClick={() => setActiveTab('exams')} icon={<BookOpen />} label="Simulados" />
-                  <TabButton active={activeTab === 'upload'} onClick={() => setActiveTab('upload')} icon={<Upload />} label="Importar" />
-                </div>
-                <div className="flex items-center ml-2 sm:ml-4 space-x-2 sm:space-x-3 border-l border-slate-800 pl-2 sm:pl-3 shrink-0">
-                  <div className="hidden xl:flex items-center text-xs text-emerald-400 bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-900/50">
-                    <Cloud className="w-3.5 h-3.5 mr-1.5 animate-pulse" /> {syncStatus}
-                  </div>
-                  <div className="hidden sm:flex flex-col text-right">
-                    <span className="text-[11px] text-slate-500 font-medium leading-none">Logado</span>
-                    <span className="text-xs sm:text-sm font-bold text-slate-200">{currentUser.username}</span>
-                  </div>
-                  <button onClick={onLogout} className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-xl" title="Sair">
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </nav>
+      function TabButton(props) {
+        return e('button', {
+          onClick: props.onClick,
+          className: 'flex items-center px-2.5 sm:px-3 py-2 min-h-[38px] rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ' +
+            (props.active ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-inner' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200')
+        },
+          React.cloneElement(props.icon, { className: 'w-4 h-4 md:mr-2' }),
+          e('span', { className: 'hidden md:inline' }, props.label)
+        );
+      }
 
-          <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
-            {activeTab === 'dashboard' && <DashboardView uepaQuestions={questions} simQuestions={simQuestions} progress={progress} />}
-            {activeTab === 'cara' && <CaraDaProvaView questions={questions} />}
-            {activeTab === 'uepa' && <ExamsView questions={questions} progress={progress} setProgress={setProgress} notes={notes} setNotes={setNotes} titlePrefix="UEPA" isUepaView={true} />}
-            {activeTab === 'exams' && <ExamsView questions={simQuestions} progress={progress} setProgress={setProgress} notes={notes} setNotes={setNotes} titlePrefix="Simulado" isUepaView={false} />}
-            {activeTab === 'upload' && (
-              <UploadView
-                questions={questions}
-                setQuestions={setQuestions}
-                simQuestions={simQuestions}
-                setSimQuestions={setSimQuestions}
-                persistGlobalDb={persistGlobalDb}
-                clearData={clearData}
-                clearProgress={clearProgress}
-              />
-            )}
-          </main>
-        </div>
-      );
-    }
+      function DashboardView(props) {
+        var uepaQuestions = props.uepaQuestions;
+        var simQuestions = props.simQuestions;
+        var progress = props.progress;
+        var errorDates = props.errorDates;
+        var checkedReviews = props.checkedReviews;
+        var onToggleReviewDone = props.onToggleReviewDone;
 
-    function TabButton({ active, onClick, icon, label }) {
-      return (
-        <button
-          onClick={onClick}
-          className={`flex items-center px-2.5 sm:px-3 py-2 min-h-[38px] rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap
-            ${active ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-inner' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
-        >
-          {React.cloneElement(icon, { className: 'w-4 h-4 md:mr-2' })}
-          <span className="hidden md:inline">{label}</span>
-        </button>
-      );
-    }
+        var sType = useState('provas'); var dashboardType = sType[0]; var setDashboardType = sType[1];
+        var sPage = useState(0); var reviewPage = sPage[0]; var setReviewPage = sPage[1];
+        var sDetail = useState(null); var selectedReviewDetail = sDetail[0]; var setSelectedReviewDetail = sDetail[1];
+        var activeQuestions = dashboardType === 'provas' ? uepaQuestions : simQuestions;
 
-    function DashboardView({ uepaQuestions, simQuestions, progress }) {
-      const [dashboardType, setDashboardType] = useState('provas'); 
-      const activeQuestions = dashboardType === 'provas' ? uepaQuestions : simQuestions;
+        useEffect(function () {
+          setReviewPage(0);
+        }, [dashboardType]);
 
-      const stats = useMemo(() => {
-        const s = { totalAnswered: 0, totalCorrect: 0, areas: {}, wrongSubthemes: {} };
-        AREAS.forEach(area => { s.areas[area] = { total: 0, answered: 0, correct: 0 }; });
+        var stats = useMemo(function () {
+          var s = { totalAnswered: 0, totalCorrect: 0, areas: {}, wrongItems: [] };
+          AREAS.forEach(function (area) { s.areas[area] = { total: 0, answered: 0, correct: 0 }; });
 
-        activeQuestions.forEach(q => {
-          if (q.isAnnulled) return;
-          const areaStat = s.areas[q.area] || { total: 0, answered: 0, correct: 0 };
-          areaStat.total += 1;
+          activeQuestions.forEach(function (q) {
+            if (q.isAnnulled) return;
+            var areaStat = s.areas[q.area] || { total: 0, answered: 0, correct: 0 };
+            areaStat.total += 1;
 
-          if (progress[q.id]) {
-            s.totalAnswered += 1;
-            areaStat.answered += 1;
-            const correctOpt = q.options.find(o => o.isCorrect);
-            if (correctOpt && progress[q.id] === correctOpt.id) {
-              s.totalCorrect += 1;
-              areaStat.correct += 1;
-            } else {
-              const key = `${q.area} > ${q.subtheme || 'Geral'}`;
-              s.wrongSubthemes[key] = (s.wrongSubthemes[key] || 0) + 1;
+            if (progress[q.id]) {
+              s.totalAnswered += 1;
+              areaStat.answered += 1;
+              var correctOpt = q.options.find(function (o) { return o.isCorrect; });
+              if (correctOpt && progress[q.id] === correctOpt.id) {
+                s.totalCorrect += 1;
+                areaStat.correct += 1;
+              } else {
+                var errDateStr = (errorDates && errorDates[q.id]) || new Date().toISOString();
+                var summary = buildSummaryWithoutReviewWord(q, correctOpt);
+                var fullReview = buildFullReviewText(q, correctOpt);
+                s.wrongItems.push({
+                  questionId: q.id,
+                  area: q.area || 'Geral',
+                  subtheme: q.subtheme || 'Geral',
+                  summary: summary,
+                  fullReview: fullReview,
+                  questionText: q.text || '',
+                  options: Array.isArray(q.options) ? q.options : [],
+                  selectedOptionId: progress[q.id],
+                  correctOptionId: (correctOpt && correctOpt.id) || null,
+                  errDate: startOfDay(errDateStr)
+                });
+              }
             }
-          }
-          s.areas[q.area] = areaStat;
-        });
-        return s;
-      }, [activeQuestions, progress]);
+            s.areas[q.area] = areaStat;
+          });
+          return s;
+        }, [activeQuestions, progress, errorDates]);
 
-      const pieData = [
-        { name: 'Acertos', value: stats.totalCorrect, color: '#34d399' },
-        { name: 'Erros', value: stats.totalAnswered - stats.totalCorrect, color: '#f87171' }
-      ];
-
-      const getAreaIcon = (area) => {
-        switch (area) {
-          case 'Medicina da Família e Comunidade': return <Users className="w-5 h-5" />;
-          case 'Clínica Médica': return <Stethoscope className="w-5 h-5" />;
-          case 'Cirurgia Geral': return <Activity className="w-5 h-5" />;
-          case 'Ginecologia & Obstetrícia': return <HeartPulse className="w-5 h-5" />;
-          case 'Pediatria': return <Baby className="w-5 h-5" />;
-          default: return <FileText className="w-5 h-5" />;
+        function getAreaIcon(area) {
+          if (area === 'Medicina da Família e Comunidade') return e(Users, { className: 'w-5 h-5' });
+          if (area === 'Clínica Médica') return e(Stethoscope, { className: 'w-5 h-5' });
+          if (area === 'Cirurgia Geral') return e(Activity, { className: 'w-5 h-5' });
+          if (area === 'Ginecologia & Obstetrícia') return e(HeartPulse, { className: 'w-5 h-5' });
+          if (area === 'Pediatria') return e(Baby, { className: 'w-5 h-5' });
+          return e(FileText, { className: 'w-5 h-5' });
         }
-      };
 
-      const recommendationsList = useMemo(() => {
-        const sortedErrors = Object.entries(stats.wrongSubthemes).sort((a, b) => b[1] - a[1]);
-        if (sortedErrors.length === 0) {
-          return [{
-            title: "Nenhum erro registrado",
-            interval: "Revisão Geral (Hoje)",
-            content: "Responda questões para ativar o plano de estudo personalizado baseado no seu progresso."
-          }];
-        }
-        return sortedErrors.slice(0, 3).map(([topic, count]) => ({
-          title: `Reforço: ${topic}`,
-          interval: count >= 3 ? "Alta Prioridade" : "Revisão Espaçada",
-          content: `Você errou este subtema ${count} vez(es) nas suas respostas. Revise os guidelines do Ministério da Saúde.`
-        }));
-      }, [stats.wrongSubthemes]);
+        var reviewCards = useMemo(function () {
+          if (stats.wrongItems.length === 0) return [];
+          var today = startOfDay(new Date());
+          var offsets = [1, 3, 7, 15];
+          var cards = [];
 
-      return (
-        <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
-          <div className="flex bg-slate-900 p-1.5 rounded-2xl w-full sm:w-fit border border-slate-800">
-            <button 
-              onClick={() => setDashboardType('provas')}
-              className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold ${dashboardType === 'provas' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
-            >
-              Dashboard UEPA Provas
-            </button>
-            <button 
-              onClick={() => setDashboardType('simulados')}
-              className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold ${dashboardType === 'simulados' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
-            >
-              Dashboard Simulados
-            </button>
-          </div>
+          stats.wrongItems.forEach(function (item, idx) {
+            var daysSinceError = Math.max(0, Math.round((today - item.errDate) / (1000 * 60 * 60 * 24)));
+            var activeOffset = offsets.find(function (d) { return d >= daysSinceError; }) || offsets[offsets.length - 1];
+            var scheduledDate = addDays(item.errDate, activeOffset);
+            var cardKey = dashboardType + '_' + item.questionId + '_' + idx;
 
-          <div className={`bg-gradient-to-r ${dashboardType === 'provas' ? 'from-blue-900 via-indigo-950 to-slate-900 border-blue-800/40' : 'from-indigo-900 via-purple-950 to-slate-900 border-indigo-800/40'} rounded-2xl p-5 sm:p-8 text-white shadow-xl border`}>
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-              {dashboardType === 'provas' ? 'Painel de Desempenho: UEPA' : 'Painel de Desempenho: Simulados'}
-            </h1>
-            <p className="text-blue-300/80 text-xs sm:text-base">Atualizado dinamicamente de acordo com o seu progresso pessoal de respostas.</p>
-          </div>
+            cards.push({
+              key: cardKey,
+              dateLabel: formatShortDate(scheduledDate) + ' (+' + activeOffset + 'd)',
+              area: item.area,
+              subtheme: item.subtheme,
+              summary: item.summary,
+              fullReview: item.fullReview,
+              questionText: item.questionText,
+              options: item.options,
+              selectedOptionId: item.selectedOptionId,
+              correctOptionId: item.correctOptionId,
+              scheduledDate: scheduledDate
+            });
+          });
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-            <div className="bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-lg flex flex-col items-center justify-center">
-              <h3 className="text-base sm:text-lg font-bold text-slate-200 mb-2">Taxa de Acertos e Erros</h3>
-              
-              {stats.totalAnswered > 0 ? (
-                <div className="h-44 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        innerRadius={50}
-                        outerRadius={70}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff' }} />
-                      <Legend verticalAlign="bottom" height={30} wrapperStyle={{ color: '#94a3b8', fontSize: '12px' }}/>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-36 flex items-center justify-center text-slate-500 text-sm text-center px-2">
-                  Responda questões para gerar o gráfico.
-                </div>
-              )}
+          return cards.sort(function (a, b) { return a.scheduledDate - b.scheduledDate; });
+        }, [stats.wrongItems, dashboardType]);
 
-              <div className="text-center mt-3 pt-3 border-t border-slate-800 w-full">
-                <span className="text-2xl sm:text-3xl font-bold text-white">
-                  {stats.totalAnswered > 0 ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100) : 0}%
-                </span>
-                <p className="text-xs text-slate-400 mt-1">Percentual de Acerto ({stats.totalCorrect}/{stats.totalAnswered})</p>
-              </div>
-            </div>
+        var itemsPerPage = 12;
+        var totalPages = Math.max(1, Math.ceil(reviewCards.length / itemsPerPage));
+        var safePage = Math.min(reviewPage, totalPages - 1);
+        var paginatedCards = reviewCards.slice(safePage * itemsPerPage, (safePage + 1) * itemsPerPage);
 
-            <div className="md:col-span-2 bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-lg">
-              <h3 className="text-base sm:text-lg font-bold text-slate-200 mb-4 sm:mb-6">Desempenho por Grande Área</h3>
-              <div className="space-y-4 sm:space-y-5">
-                {AREAS.map(area => {
-                  const data = stats.areas[area];
-                  const pct = data.answered > 0 ? Math.round((data.correct / data.answered) * 100) : 0;
-                  return (
-                    <div key={area}>
-                      <div className="flex justify-between items-center mb-1.5 sm:mb-2 gap-2">
-                        <div className="flex items-center font-medium text-slate-300 text-xs sm:text-sm">
-                          <span style={{ color: getAreaColor(area) }} className="mr-2 shrink-0">{getAreaIcon(area)}</span>
-                          <span>{area}</span>
-                        </div>
-                        <div className="text-xs sm:text-sm text-slate-400 shrink-0">
-                          <span className="font-bold text-white">{data.correct}</span> / {data.answered} 
-                          <span className="ml-1.5">({pct}%)</span>
-                        </div>
-                      </div>
-                      <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
-                        <div className="h-2.5 rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: getAreaColor(area) }}></div>
-                      </div>
-                    </div>
+        var totalWrong = stats.totalAnswered - stats.totalCorrect;
+        var accuracyPct = stats.totalAnswered > 0 ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100) : 0;
+
+        return e('div', { className: 'space-y-4 sm:space-y-6' },
+          e('div', { className: 'flex bg-slate-900 p-1.5 rounded-2xl w-full sm:w-fit border border-slate-800' },
+            e('button', {
+              onClick: function () { setDashboardType('provas'); },
+              className: 'flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold ' +
+                (dashboardType === 'provas' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')
+            }, 'Dashboard UEPA Provas'),
+            e('button', {
+              onClick: function () { setDashboardType('simulados'); },
+              className: 'flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold ' +
+                (dashboardType === 'simulados' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200')
+            }, 'Dashboard Simulados')
+          ),
+
+          e('div', {
+            className: 'bg-gradient-to-r ' +
+              (dashboardType === 'provas'
+                ? 'from-blue-900 via-indigo-950 to-slate-900 border-blue-800/40'
+                : 'from-indigo-900 via-purple-950 to-slate-900 border-indigo-800/40') +
+              ' rounded-2xl p-5 sm:p-8 text-white shadow-xl border'
+          },
+            e('h1', { className: 'text-2xl sm:text-3xl font-bold mb-2' },
+              dashboardType === 'provas' ? 'Painel de Desempenho: UEPA' : 'Painel de Desempenho: Simulados'
+            ),
+            e('p', { className: 'text-blue-300/80 text-xs sm:text-base' },
+              'Atualizado dinamicamente de acordo com o seu progresso pessoal de respostas.'
+            )
+          ),
+
+          e('div', { className: 'grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6' },
+            e('div', { className: 'bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-lg flex flex-col justify-between' },
+              e('div', null,
+                e('h3', { className: 'text-base sm:text-lg font-bold text-slate-200 mb-4' }, 'Resumo de Respostas'),
+                e('div', { className: 'grid grid-cols-2 gap-3 mb-4' },
+                  e('div', { className: 'bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-center' },
+                    e('span', { className: 'text-xs text-emerald-400 font-semibold block' }, 'Acertos'),
+                    e('span', { className: 'text-2xl font-bold text-white mt-1 block' }, stats.totalCorrect)
+                  ),
+                  e('div', { className: 'bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-center' },
+                    e('span', { className: 'text-xs text-red-400 font-semibold block' }, 'Erros'),
+                    e('span', { className: 'text-2xl font-bold text-white mt-1 block' }, totalWrong)
+                  )
+                )
+              ),
+              e('div', { className: 'text-center pt-4 border-t border-slate-800 w-full' },
+                e('span', { className: 'text-3xl font-bold text-white' }, accuracyPct + '%'),
+                e('p', { className: 'text-xs text-slate-400 mt-1' },
+                  'Percentual de Acerto (' + stats.totalCorrect + '/' + stats.totalAnswered + ')'
+                )
+              )
+            ),
+
+            e('div', { className: 'lg:col-span-2 bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-lg' },
+              e('h3', { className: 'text-base sm:text-lg font-bold text-slate-200 mb-4 sm:mb-6' }, 'Desempenho por Grande Área'),
+              e('div', { className: 'space-y-4 sm:space-y-5' },
+                AREAS.map(function (area) {
+                  var data = stats.areas[area];
+                  var pct = data.answered > 0 ? Math.round((data.correct / data.answered) * 100) : 0;
+                  return e('div', { key: area },
+                    e('div', { className: 'flex justify-between items-center mb-1.5 sm:mb-2 gap-2' },
+                      e('div', { className: 'flex items-center font-medium text-slate-300 text-xs sm:text-sm' },
+                        e('span', { style: { color: getAreaColor(area) }, className: 'mr-2 shrink-0' }, getAreaIcon(area)),
+                        e('span', null, area)
+                      ),
+                      e('div', { className: 'text-xs sm:text-sm text-slate-400 shrink-0' },
+                        e('span', { className: 'font-bold text-white' }, data.correct),
+                        ' / ' + data.answered + ' ',
+                        e('span', { className: 'ml-1.5' }, '(' + pct + '%)')
+                      )
+                    ),
+                    e('div', { className: 'w-full bg-slate-800 rounded-full h-2.5 overflow-hidden' },
+                      e('div', {
+                        className: 'h-2.5 rounded-full transition-all duration-500',
+                        style: { width: pct + '%', backgroundColor: getAreaColor(area) }
+                      })
+                    )
                   );
-                })}
-              </div>
-            </div>
-          </div>
+                })
+              )
+            )
+          ),
 
-          <div className="border p-4 sm:p-6 rounded-2xl bg-blue-950/40 border-blue-900/50">
-            <h4 className="font-bold text-base sm:text-lg text-blue-200 mb-3 flex items-center">
-              <Lightbulb className="w-5 h-5 mr-2 text-blue-400 shrink-0" /> Recomendações Inteligentes (Baseadas no seu Progresso)
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-              {recommendationsList.map((rec, i) => (
-                <div key={i} className="bg-slate-900/80 border border-slate-800 p-4 rounded-xl">
-                  <span className="text-xs font-bold px-2 py-1 bg-amber-500/20 text-amber-300 rounded-lg">{rec.interval}</span>
-                  <h5 className="font-bold text-white text-sm mt-2 mb-1">{rec.title}</h5>
-                  <p className="text-slate-300 text-xs leading-relaxed">{rec.content}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
+          e('div', { className: 'border p-4 sm:p-6 rounded-2xl bg-slate-900/70 border-slate-800' },
+            e('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4' },
+              e('h4', { className: 'font-bold text-base sm:text-lg text-white' }, 'Revisão Espaçada'),
+              reviewCards.length > 0 ? e('div', { className: 'flex items-center space-x-2 self-end sm:self-auto' },
+                e('button', {
+                  onClick: function () { setReviewPage(function (p) { return Math.max(0, p - 1); }); },
+                  disabled: safePage === 0,
+                  className: 'px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 font-bold text-xs disabled:opacity-30 hover:bg-slate-800',
+                  title: 'Página anterior'
+                }, '<'),
+                e('span', { className: 'text-xs text-slate-300 font-semibold px-1' }, (safePage + 1) + ' / ' + totalPages),
+                e('button', {
+                  onClick: function () { setReviewPage(function (p) { return Math.min(totalPages - 1, p + 1); }); },
+                  disabled: safePage >= totalPages - 1,
+                  className: 'px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 font-bold text-xs disabled:opacity-30 hover:bg-slate-800',
+                  title: 'Próxima página'
+                }, '>')
+              ) : null
+            ),
 
-    function CaraDaProvaView({ questions }) {
-      const [selectedExamGroup, setSelectedExamGroup] = useState('Todas');
-      const [selectedArea, setSelectedArea] = useState('Todas');
+            paginatedCards.length > 0 ? e('div', { className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4' },
+              paginatedCards.map(function (card) {
+                var isDone = !!(checkedReviews && checkedReviews[card.key]);
+                return e('div', {
+                  key: card.key,
+                  className: 'p-4 rounded-xl border transition-all flex flex-col justify-between min-h-[152px] ' +
+                    (isDone
+                      ? 'bg-emerald-950/70 border-emerald-500 text-emerald-100 shadow-lg shadow-emerald-950/50'
+                      : 'bg-slate-950 border-slate-800 text-slate-200')
+                },
+                  e('div', null,
+                    e('div', { className: 'flex items-center justify-between gap-2 mb-2' },
+                      e('span', {
+                        className: 'text-xs font-bold px-2.5 py-1 rounded-lg ' +
+                          (isDone ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-900 text-cyan-300 border border-slate-800')
+                      }, card.dateLabel),
+                      e('span', {
+                        className: 'text-[11px] font-bold px-2 py-0.5 rounded-md text-white truncate max-w-[140px]',
+                        style: { backgroundColor: isDone ? '#059669' : getAreaColor(card.area) }
+                      }, card.area)
+                    ),
+                    e('p', {
+                      className: 'text-xs sm:text-sm font-medium leading-relaxed ' + (isDone ? 'text-emerald-100' : 'text-slate-200')
+                    }, card.summary)
+                  ),
+                  e('div', { className: 'flex items-center justify-between mt-3 pt-2' },
+                    e('button', {
+                      type: 'button',
+                      onClick: function () { setSelectedReviewDetail(card); },
+                      className: 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ' +
+                        (isDone
+                          ? 'bg-emerald-900/70 hover:bg-emerald-800 text-emerald-200 border border-emerald-500/40'
+                          : 'bg-slate-900 hover:bg-slate-800 text-blue-300 border border-slate-700'),
+                      title: 'Ver revisão completa e questão errada'
+                    },
+                      e(BookOpenTextIcon, { className: 'w-3.5 h-3.5 shrink-0' }),
+                      e('span', null, 'Leia mais')
+                    ),
+                    e('button', {
+                      type: 'button',
+                      onClick: function () { onToggleReviewDone(card.key); },
+                      className: 'p-1 rounded-lg transition-all ' +
+                        (isDone ? 'bg-emerald-500/30 ring-1 ring-emerald-400' : 'hover:bg-slate-800/80 opacity-90 hover:opacity-100'),
+                      title: 'Marcar como feita',
+                      'aria-label': 'Marcar como feita'
+                    }, e(ReviewCheckIcon, { checked: isDone, className: 'w-6 h-6' }))
+                  )
+                );
+              })
+            ) : e('div', { className: 'bg-slate-950 border border-slate-800 rounded-xl p-6 text-center text-xs sm:text-sm text-slate-400' },
+              'Nenhuma questão errada para agendar no momento.'
+            )
+          ),
 
-      const groupsList = useMemo(() => {
-        const list = Array.from(new Set(questions.map(q => q.groupLabel))).filter(Boolean);
-        return ['Todas', ...list.sort()];
-      }, [questions]);
+          selectedReviewDetail ? e('div', {
+            className: 'fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6',
+            onClick: function () { setSelectedReviewDetail(null); }
+          },
+            e('div', {
+              className: 'bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[88vh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-5',
+              onClick: function (ev) { ev.stopPropagation(); }
+            },
+              e('div', { className: 'flex items-start justify-between gap-3 border-b border-slate-800 pb-3.5' },
+                e('div', { className: 'flex flex-wrap items-center gap-2' },
+                  e('span', { className: 'text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-950 text-cyan-300 border border-slate-800' },
+                    selectedReviewDetail.dateLabel
+                  ),
+                  e('span', {
+                    className: 'text-xs font-bold px-2.5 py-1 rounded-lg text-white',
+                    style: { backgroundColor: getAreaColor(selectedReviewDetail.area) }
+                  }, selectedReviewDetail.area),
+                  e('span', { className: 'text-xs text-slate-400 font-medium' }, selectedReviewDetail.subtheme)
+                ),
+                e('button', {
+                  type: 'button',
+                  onClick: function () { setSelectedReviewDetail(null); },
+                  className: 'p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0',
+                  'aria-label': 'Fechar'
+                }, e(XIcon, { className: 'w-4 h-4' }))
+              ),
+              e('div', { className: 'bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1.5' },
+                e('h5', { className: 'text-xs font-bold uppercase tracking-wider text-emerald-400' }, 'Texto Completo da Revisão'),
+                e('p', { className: 'text-sm text-slate-100 leading-relaxed' }, selectedReviewDetail.fullReview)
+              ),
+              e('div', { className: 'bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4' },
+                e('div', null,
+                  e('h5', { className: 'text-xs font-bold uppercase tracking-wider text-rose-400 mb-1.5' }, 'Questão Errada'),
+                  e('p', { className: 'text-sm text-slate-100 leading-relaxed whitespace-pre-line' }, selectedReviewDetail.questionText)
+                ),
+                e('div', { className: 'space-y-2 pt-2 border-t border-slate-800/80' },
+                  selectedReviewDetail.options.map(function (opt) {
+                    var isCorrect = opt.id === selectedReviewDetail.correctOptionId;
+                    var isPickedWrong = opt.id === selectedReviewDetail.selectedOptionId && !isCorrect;
+                    var optStyle = 'bg-slate-900/70 border-slate-800 text-slate-300';
+                    if (isCorrect) optStyle = 'bg-emerald-950/50 border-emerald-500/70 text-emerald-200';
+                    else if (isPickedWrong) optStyle = 'bg-red-950/50 border-red-500/70 text-red-200';
 
-      const chartData = useMemo(() => {
-        let filtered = questions.filter(q => q.exam === 'UEPA' && !q.isAnnulled);
-        if (selectedExamGroup !== 'Todas') {
-          filtered = filtered.filter(q => (q.year && q.year.toString() === selectedExamGroup) || q.groupLabel === selectedExamGroup);
-        }
-        if (selectedArea !== 'Todas') {
-          filtered = filtered.filter(q => q.area === selectedArea);
-        }
+                    return e('div', {
+                      key: opt.id,
+                      className: 'p-3 rounded-xl border text-xs sm:text-sm flex items-start gap-2.5 ' + optStyle
+                    },
+                      e('span', { className: 'font-bold shrink-0' }, opt.id + ')'),
+                      e('span', { className: 'flex-1' }, opt.text),
+                      isCorrect ? e('span', { className: 'text-[11px] font-bold text-emerald-400 shrink-0' }, 'Correta') : null,
+                      isPickedWrong ? e('span', { className: 'text-[11px] font-bold text-red-400 shrink-0' }, 'Sua escolha') : null
+                    );
+                  })
+                )
+              )
+            )
+          ) : null
+        );
+      }
 
-        const totalCount = filtered.length;
-        if (totalCount === 0) return [];
+      function CaraDaProvaView(props) {
+        var questions = props.questions;
+        var sGroup = useState('Todas'); var selectedExamGroup = sGroup[0]; var setSelectedExamGroup = sGroup[1];
+        var sArea = useState('Todas'); var selectedArea = sArea[0]; var setSelectedArea = sArea[1];
 
-        const subthemeMap = {};
-        filtered.forEach(q => {
-          const st = q.subtheme || 'Geral';
-          if (!subthemeMap[st]) {
-            subthemeMap[st] = { count: 0, area: q.area };
+        var groupsList = useMemo(function () {
+          var seen = {};
+          var list = [];
+          questions.forEach(function (q) {
+            if (q.groupLabel && !seen[q.groupLabel]) {
+              seen[q.groupLabel] = true;
+              list.push(q.groupLabel);
+            }
+          });
+          return ['Todas'].concat(list.sort());
+        }, [questions]);
+
+        var chartData = useMemo(function () {
+          var filtered = questions.filter(function (q) { return q.exam === 'UEPA' && !q.isAnnulled; });
+          if (selectedExamGroup !== 'Todas') {
+            filtered = filtered.filter(function (q) {
+              return (q.year && q.year.toString() === selectedExamGroup) || q.groupLabel === selectedExamGroup;
+            });
           }
-          subthemeMap[st].count += 1;
-        });
+          if (selectedArea !== 'Todas') {
+            filtered = filtered.filter(function (q) { return q.area === selectedArea; });
+          }
 
-        const palette = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6', '#eab308'];
+          var totalCount = filtered.length;
+          if (totalCount === 0) return [];
 
-        return Object.entries(subthemeMap)
-          .map(([name, data], idx) => ({
-            name,
-            count: data.count,
-            area: data.area,
-            percentage: Number(((data.count / totalCount) * 100).toFixed(1)),
-            color: selectedArea !== 'Todas' ? getAreaColor(selectedArea) : (AREA_COLORS[data.area] || palette[idx % palette.length])
-          }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 10);
-      }, [questions, selectedExamGroup, selectedArea]);
+          var subthemeMap = {};
+          filtered.forEach(function (q) {
+            var st = q.subtheme || 'Geral';
+            if (!subthemeMap[st]) subthemeMap[st] = { count: 0, area: q.area };
+            subthemeMap[st].count += 1;
+          });
 
-      return (
-        <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
-          <div className="bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-xl">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center">
-                  <BarChart3 className="w-6 h-6 mr-2 text-blue-400 shrink-0" /> A Cara da Prova (Incidência de Subtemas)
-                </h2>
-                <p className="text-slate-400 text-xs sm:text-sm mt-1">Análise percentual baseada exclusivamente nas provas oficiais da UEPA cadastradas no banco base.</p>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full lg:w-auto">
-                <div className="flex items-center space-x-2 flex-1 sm:flex-initial">
-                  <span className="text-xs text-slate-400 font-medium shrink-0">Ano:</span>
-                  <select 
-                    value={selectedExamGroup} 
-                    onChange={e => setSelectedExamGroup(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 border border-slate-700 rounded-xl text-xs sm:text-sm bg-slate-800 text-slate-200 outline-none"
-                  >
-                    {groupsList.map(g => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                </div>
-                
-                <div className="flex items-center space-x-2 flex-1 sm:flex-initial">
-                  <span className="text-xs text-slate-400 font-medium shrink-0">Área:</span>
-                  <select 
-                    value={selectedArea} 
-                    onChange={e => setSelectedArea(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 border border-slate-700 rounded-xl text-xs sm:text-sm bg-slate-800 text-slate-200 outline-none"
-                  >
-                    <option value="Todas">Todas as Grandes Áreas</option>
-                    {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
-                  </select>
-                </div>
-              </div>
-            </div>
+          var palette = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6', '#eab308'];
 
-            {chartData.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-center mt-6 pt-6 border-t border-slate-800">
-                <div className="lg:col-span-6 h-[300px] sm:h-[420px] w-full flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={chartData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={110}
-                        innerRadius={40}
-                        paddingAngle={3}
-                        dataKey="count"
-                        label={({ percentage }) => `${percentage}%`}
-                      >
-                        {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} stroke="#0f172a" strokeWidth={2} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip 
-                        contentStyle={{ backgroundColor: '#1e293b', borderRadius: '12px', border: 'none', color: '#fff' }}
-                        formatter={(value, name, item) => [`${item.payload.count} questão(ões) (${item.payload.percentage}%)`, item.payload.name]}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+          return Object.keys(subthemeMap)
+            .map(function (name, idx) {
+              var data = subthemeMap[name];
+              return {
+                name: name,
+                count: data.count,
+                area: data.area,
+                percentage: Number(((data.count / totalCount) * 100).toFixed(1)),
+                color: selectedArea !== 'Todas' ? getAreaColor(selectedArea) : (AREA_COLORS[data.area] || palette[idx % palette.length])
+              };
+            })
+            .sort(function (a, b) { return b.count - a.count; })
+            .slice(0, 10);
+        }, [questions, selectedExamGroup, selectedArea]);
 
-                <div className="lg:col-span-6 space-y-2.5 sm:space-y-3 max-h-[420px] overflow-y-auto pr-1 sm:pr-2 no-scrollbar">
-                  <h4 className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Ranking de Assuntos Mais Cobrados</h4>
-                  {chartData.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 sm:p-3.5 bg-slate-950 rounded-xl border border-slate-800 hover:border-slate-700 transition-all">
-                      <div className="flex items-center space-x-3 mr-2 sm:mr-3">
-                        <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: item.color }} />
-                        <div>
-                          <span className="text-xs sm:text-sm font-semibold text-white block">{item.name}</span>
-                          <span className="text-[11px] sm:text-xs text-slate-400">{item.area}</span>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-sm sm:text-base font-bold text-blue-400">{item.percentage}%</span>
-                        <span className="text-[11px] sm:text-xs text-slate-500 block">({item.count} qts)</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="py-16 sm:py-24 px-4 text-center text-slate-500 bg-slate-950 rounded-2xl border border-slate-800 mt-4 text-sm">
-                Nenhuma prova da UEPA cadastrada para os filtros selecionados. Vá até a aba "Importar" para enviar os dados base.
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
+        return e('div', { className: 'space-y-4 sm:space-y-6' },
+          e('div', { className: 'bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-xl' },
+            e('div', { className: 'flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6' },
+              e('div', null,
+                e('h2', { className: 'text-xl sm:text-2xl font-bold text-white flex items-center' },
+                  e(BarChart3, { className: 'w-6 h-6 mr-2 text-blue-400 shrink-0' }),
+                  ' A Cara da Prova (Incidência de Subtemas)'
+                ),
+                e('p', { className: 'text-slate-400 text-xs sm:text-sm mt-1' },
+                  'Análise percentual baseada exclusivamente nas provas oficiais da UEPA cadastradas no banco base.'
+                )
+              ),
+              e('div', { className: 'flex flex-col sm:flex-row gap-3 sm:gap-4 w-full lg:w-auto' },
+                e('div', { className: 'flex items-center space-x-2 flex-1 sm:flex-initial' },
+                  e('span', { className: 'text-xs text-slate-400 font-medium shrink-0' }, 'Ano:'),
+                  e('select', {
+                    value: selectedExamGroup,
+                    onChange: function (ev) { setSelectedExamGroup(ev.target.value); },
+                    className: 'w-full px-3 sm:px-4 py-2 border border-slate-700 rounded-xl text-xs sm:text-sm bg-slate-800 text-slate-200 outline-none'
+                  }, groupsList.map(function (g) { return e('option', { key: g, value: g }, g); }))
+                ),
+                e('div', { className: 'flex items-center space-x-2 flex-1 sm:flex-initial' },
+                  e('span', { className: 'text-xs text-slate-400 font-medium shrink-0' }, 'Área:'),
+                  e('select', {
+                    value: selectedArea,
+                    onChange: function (ev) { setSelectedArea(ev.target.value); },
+                    className: 'w-full px-3 sm:px-4 py-2 border border-slate-700 rounded-xl text-xs sm:text-sm bg-slate-800 text-slate-200 outline-none'
+                  },
+                    [e('option', { key: 'Todas', value: 'Todas' }, 'Todas as Grandes Áreas')].concat(
+                      AREAS.map(function (a) { return e('option', { key: a, value: a }, a); })
+                    )
+                  )
+                )
+              )
+            ),
 
-    function ExamsView({ questions, progress, setProgress, notes, setNotes, titlePrefix, isUepaView }) {
-      const [selectedGroup, setSelectedGroup] = useState('Todos');
-      const [selectedArea, setSelectedArea] = useState('Todas');
-      const [currentIndex, setCurrentIndex] = useState(0);
-      
-      const [tempOptionId, setTempOptionId] = useState(null);
-      const [eliminated, setEliminated] = useState({});
-      
-      const [aiExplanation, setAiExplanation] = useState('');
-      const [aiLoading, setAiLoading] = useState(false);
-      const [noteText, setNoteText] = useState('');
-
-      const groupsList = useMemo(() => {
-        const list = Array.from(new Set(questions.map(q => q.groupLabel))).filter(Boolean);
-        return ['Todos', ...list.sort()];
-      }, [questions]);
-
-      useEffect(() => {
-        if (isUepaView && selectedGroup === 'Todos' && groupsList.length > 1) {
-          setSelectedGroup(groupsList[1]);
-        }
-      }, [isUepaView, groupsList, selectedGroup]);
-
-      const currentQuestions = useMemo(() => {
-        let filtered = questions;
-        if (selectedGroup !== 'Todos') filtered = filtered.filter(q => q.groupLabel === selectedGroup);
-        if (selectedArea !== 'Todas') filtered = filtered.filter(q => q.area === selectedArea);
-        return filtered;
-      }, [questions, selectedGroup, selectedArea]);
-
-      const currentQ = currentQuestions[currentIndex];
-
-      useEffect(() => {
-        setTempOptionId(null);
-        setEliminated({});
-        setAiExplanation('');
-        if (currentQ) setNoteText(notes[currentQ.id] || '');
-      }, [currentIndex, currentQ, notes]);
-
-      if (!questions.length) {
-        return (
-          <div className="text-center py-16 sm:py-20 px-4 bg-slate-900 rounded-2xl border border-slate-800">
-            <BookOpen className="w-14 h-14 sm:w-16 sm:h-16 text-slate-600 mx-auto mb-4" />
-            <h2 className="text-lg sm:text-xl font-bold text-slate-300">Nenhum item disponível no banco base</h2>
-            <p className="text-slate-500 mt-2 text-xs sm:text-sm">Vá até a aba "Importar" para cadastrar as questões que aparecerão para todos os usuários.</p>
-          </div>
+            chartData.length > 0 ? e('div', { className: 'grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-center mt-6 pt-6 border-t border-slate-800' },
+              e('div', { className: 'lg:col-span-6 h-[300px] sm:h-[420px] w-full flex items-center justify-center' },
+                e(ResponsiveContainer, { width: '100%', height: '100%' },
+                  e(PieChart, null,
+                    e(Pie, {
+                      data: chartData,
+                      cx: '50%',
+                      cy: '50%',
+                      outerRadius: 110,
+                      innerRadius: 40,
+                      paddingAngle: 3,
+                      dataKey: 'count',
+                      label: function (d) { return d.percentage + '%'; }
+                    }, chartData.map(function (entry, index) {
+                      return e(Cell, { key: 'cell-' + index, fill: entry.color, stroke: '#0f172a', strokeWidth: 2 });
+                    })),
+                    e(RechartsTooltip, {
+                      contentStyle: { backgroundColor: '#1e293b', borderRadius: '12px', border: 'none', color: '#fff' },
+                      formatter: function (_v, _n, item) {
+                        return [item.payload.count + ' questão(ões) (' + item.payload.percentage + '%)', item.payload.name];
+                      }
+                    })
+                  )
+                )
+              ),
+              e('div', { className: 'lg:col-span-6 space-y-2.5 sm:space-y-3 max-h-[420px] overflow-y-auto pr-1 sm:pr-2 no-scrollbar' },
+                e('h4', { className: 'text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-wider mb-3' },
+                  'Ranking de Assuntos Mais Cobrados'
+                ),
+                chartData.map(function (item, idx) {
+                  return e('div', {
+                    key: idx,
+                    className: 'flex items-center justify-between p-3 sm:p-3.5 bg-slate-950 rounded-xl border border-slate-800 hover:border-slate-700 transition-all'
+                  },
+                    e('div', { className: 'flex items-center space-x-3 mr-2 sm:mr-3' },
+                      e('div', { className: 'w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full shrink-0 shadow-sm', style: { backgroundColor: item.color } }),
+                      e('div', null,
+                        e('span', { className: 'text-xs sm:text-sm font-semibold text-white block' }, item.name),
+                        e('span', { className: 'text-[11px] sm:text-xs text-slate-400' }, item.area)
+                      )
+                    ),
+                    e('div', { className: 'text-right shrink-0' },
+                      e('span', { className: 'text-sm sm:text-base font-bold text-blue-400' }, item.percentage + '%'),
+                      e('span', { className: 'text-[11px] sm:text-xs text-slate-500 block' }, '(' + item.count + ' qts)')
+                    )
+                  );
+                })
+              )
+            ) : e('div', { className: 'py-16 sm:py-24 px-4 text-center text-slate-500 bg-slate-950 rounded-2xl border border-slate-800 mt-4 text-sm' },
+              'Nenhuma prova da UEPA cadastrada para os filtros selecionados. Vá até a aba "Importar" para enviar os dados base.'
+            )
+          )
         );
       }
 
-      if (!currentQ && currentQuestions.length === 0) {
-        return (
-          <div className="text-center py-16 sm:py-20 px-4 bg-slate-900 rounded-2xl border border-slate-800">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-300">Nenhuma questão para este filtro</h2>
-            <button onClick={() => { setSelectedGroup('Todos'); setSelectedArea('Todas'); }} className="mt-4 text-blue-400 text-sm font-medium">Limpar Filtros</button>
-          </div>
-        );
-      }
+      function ExamsView(props) {
+        var questions = props.questions;
+        var progress = props.progress;
+        var setProgress = props.setProgress;
+        var notes = props.notes;
+        var setNotes = props.setNotes;
+        var titlePrefix = props.titlePrefix;
+        var isUepaView = props.isUepaView;
 
-      if (!currentQ) return null;
+        var sGrp = useState('Todos'); var selectedGroup = sGrp[0]; var setSelectedGroup = sGrp[1];
+        var sArea = useState('Todas'); var selectedArea = sArea[0]; var setSelectedArea = sArea[1];
+        var sIdx = useState(0); var currentIndex = sIdx[0]; var setCurrentIndex = sIdx[1];
+        var sTmp = useState(null); var tempOptionId = sTmp[0]; var setTempOptionId = sTmp[1];
+        var sElim = useState({}); var eliminated = sElim[0]; var setEliminated = sElim[1];
+        var sAi = useState(''); var aiExplanation = sAi[0]; var setAiExplanation = sAi[1];
+        var sAiLoad = useState(false); var aiLoading = sAiLoad[0]; var setAiLoading = sAiLoad[1];
+        var sNote = useState(''); var noteText = sNote[0]; var setNoteText = sNote[1];
 
-      const isConfirmed = !!progress[currentQ.id];
-      const confirmedOptionId = progress[currentQ.id];
+        var groupsList = useMemo(function () {
+          var seen = {};
+          var list = [];
+          questions.forEach(function (q) {
+            if (q.groupLabel && !seen[q.groupLabel]) {
+              seen[q.groupLabel] = true;
+              list.push(q.groupLabel);
+            }
+          });
+          return ['Todos'].concat(list.sort());
+        }, [questions]);
 
-      const handleConfirm = () => {
-        if (tempOptionId) {
-          setProgress({ ...progress, [currentQ.id]: tempOptionId });
+        useEffect(function () {
+          if (isUepaView && selectedGroup === 'Todos' && groupsList.length > 1) {
+            setSelectedGroup(groupsList[1]);
+          }
+        }, [isUepaView, groupsList, selectedGroup]);
+
+        var currentQuestions = useMemo(function () {
+          var filtered = questions;
+          if (selectedGroup !== 'Todos') filtered = filtered.filter(function (q) { return q.groupLabel === selectedGroup; });
+          if (selectedArea !== 'Todas') filtered = filtered.filter(function (q) { return q.area === selectedArea; });
+          return filtered;
+        }, [questions, selectedGroup, selectedArea]);
+
+        var currentQ = currentQuestions[currentIndex];
+
+        useEffect(function () {
+          setTempOptionId(null);
+          setEliminated({});
+          setAiExplanation('');
+          if (currentQ) setNoteText(notes[currentQ.id] || '');
+        }, [currentIndex, currentQ, notes]);
+
+        if (!questions.length) {
+          return e('div', { className: 'text-center py-16 sm:py-20 px-4 bg-slate-900 rounded-2xl border border-slate-800' },
+            e(BookOpen, { className: 'w-14 h-14 sm:w-16 sm:h-16 text-slate-600 mx-auto mb-4' }),
+            e('h2', { className: 'text-lg sm:text-xl font-bold text-slate-300' }, 'Nenhum item disponível no banco base'),
+            e('p', { className: 'text-slate-500 mt-2 text-xs sm:text-sm' },
+              'Vá até a aba "Importar" para cadastrar as questões que aparecerão para todos os usuários.'
+            )
+          );
         }
-      };
 
-      const toggleEliminate = (e, optId) => {
-        e.stopPropagation();
-        setEliminated(prev => ({ ...prev, [optId]: !prev[optId] }));
-      };
+        if (!currentQ && currentQuestions.length === 0) {
+          return e('div', { className: 'text-center py-16 sm:py-20 px-4 bg-slate-900 rounded-2xl border border-slate-800' },
+            e('h2', { className: 'text-lg sm:text-xl font-bold text-slate-300' }, 'Nenhuma questão para este filtro'),
+            e('button', {
+              onClick: function () { setSelectedGroup('Todos'); setSelectedArea('Todas'); },
+              className: 'mt-4 text-blue-400 text-sm font-medium'
+            }, 'Limpar Filtros')
+          );
+        }
 
-      const jumpIndex = (amount) => {
-        let newIndex = currentIndex + amount;
-        if (newIndex < 0) newIndex = 0;
-        if (newIndex >= currentQuestions.length) newIndex = currentQuestions.length - 1;
-        setCurrentIndex(newIndex);
-      };
+        if (!currentQ) return null;
 
-      const saveNote = () => {
-        setNotes({ ...notes, [currentQ.id]: noteText });
-      };
+        var isConfirmed = !!progress[currentQ.id];
+        var confirmedOptionId = progress[currentQ.id];
 
-      const getAIExplanation = async () => {
-        setAiLoading(true);
-        setAiExplanation('');
+        function handleConfirm() {
+          if (tempOptionId) {
+            var next = Object.assign({}, progress);
+            next[currentQ.id] = tempOptionId;
+            setProgress(next);
+          }
+        }
 
-        const correctOpt = currentQ.options.find(o => o.isCorrect);
+        function toggleEliminate(ev, optId) {
+          ev.stopPropagation();
+          setEliminated(function (prev) {
+            var next = Object.assign({}, prev);
+            next[optId] = !next[optId];
+            return next;
+          });
+        }
 
-        const systemPrompt = "Você é um médico especialista em educação médica e residência médica no Brasil. Forneça uma análise técnica fundamentada nas diretrizes do Ministério da Saúde e guidelines vigentes. Explique detalhadamente o enunciado, por que a alternativa correta é a gabaritada e por que as alternativas incorretas são distratores.";
-        const userQuery = `Analise esta questão de prova:\n\nGrande Área: ${currentQ.area}\nSubtema: ${currentQ.subtheme}\nEnunciado: ${currentQ.text}\n\nAlternativas:\n${currentQ.options.map(o => `${o.id}) ${o.text}`).join('\n')}\n\nGabarito: ${correctOpt ? correctOpt.id : 'Anulada'}`;
+        function jumpIndex(amount) {
+          var newIndex = currentIndex + amount;
+          if (newIndex < 0) newIndex = 0;
+          if (newIndex >= currentQuestions.length) newIndex = currentQuestions.length - 1;
+          setCurrentIndex(newIndex);
+        }
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=`;
-        const payload = {
-          contents: [{ parts: [{ text: userQuery }] }],
-          systemInstruction: { parts: [{ text: systemPrompt }] }
-        };
+        function saveNote() {
+          var next = Object.assign({}, notes);
+          next[currentQ.id] = noteText;
+          setNotes(next);
+        }
 
-        try {
-          const response = await fetch(apiUrl, {
+        function fallbackExplanation(correctOpt) {
+          setAiExplanation(
+            'De acordo com as diretrizes do Ministério da Saúde e protocolos vigentes para ' +
+            currentQ.area + ' (' + currentQ.subtheme + '), a alternativa correta é a letra "' +
+            (correctOpt ? correctOpt.id : 'N/A') + '".\n\n' +
+            'Esta conclusão decorre da análise rigorosa do quadro clínico apresentado no enunciado.'
+          );
+        }
+
+        function getAIExplanation() {
+          setAiLoading(true);
+          setAiExplanation('');
+          var correctOpt = currentQ.options.find(function (o) { return o.isCorrect; });
+
+          var systemPrompt = 'Você é um médico especialista em educação médica e residência médica no Brasil. Forneça uma análise técnica fundamentada nas diretrizes do Ministério da Saúde e guidelines vigentes. Explique detalhadamente o enunciado, por que a alternativa correta é a gabaritada e por que as alternativas incorretas são distratores.';
+          var userQuery = 'Analise esta questão de prova:\n\nGrande Área: ' + currentQ.area +
+            '\nSubtema: ' + currentQ.subtheme +
+            '\nEnunciado: ' + currentQ.text +
+            '\n\nAlternativas:\n' + currentQ.options.map(function (o) { return o.id + ') ' + o.text; }).join('\n') +
+            '\n\nGabarito: ' + (correctOpt ? correctOpt.id : 'Anulada');
+
+          var apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=';
+          fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          const result = await response.json();
-          const candidate = result.candidates?.[0];
-          if (candidate && candidate.content?.parts?.[0]?.text) {
-            setAiExplanation(candidate.content.parts[0].text);
-          } else {
-            fallbackExplanation(correctOpt);
-          }
-        } catch (err) {
-          fallbackExplanation(correctOpt);
-        } finally {
-          setAiLoading(false);
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: userQuery }] }],
+              systemInstruction: { parts: [{ text: systemPrompt }] }
+            })
+          }).then(function (r) { return r.json(); })
+            .then(function (result) {
+              var candidate = result && result.candidates && result.candidates[0];
+              if (candidate && candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text) {
+                setAiExplanation(candidate.content.parts[0].text);
+              } else {
+                fallbackExplanation(correctOpt);
+              }
+            })
+            .catch(function () { fallbackExplanation(correctOpt); })
+            .finally(function () { setAiLoading(false); });
         }
-      };
 
-      const fallbackExplanation = (correctOpt) => {
-        setAiExplanation(
-          `De acordo com as diretrizes do Ministério da Saúde e protocolos vigentes para ${currentQ.area} (${currentQ.subtheme}), a alternativa correta é a letra "${correctOpt ? correctOpt.id : 'N/A'}".\n\n` +
-          `Esta conclusão decorre da análise rigorosa do quadro clínico apresentado no enunciado.`
-        );
-      };
+        var confirmedOptObj = currentQ.options.find(function (o) { return o.id === confirmedOptionId; });
 
-      return (
-        <div className="max-w-4xl mx-auto animate-in fade-in duration-300">
-          <div className="bg-slate-900 p-3 sm:p-4 rounded-t-2xl border border-slate-800 border-b-0 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 sm:gap-4">
-            <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 w-full md:w-auto">
-              <select 
-                value={selectedGroup} 
-                onChange={e => { setSelectedGroup(e.target.value); setCurrentIndex(0); }}
-                className="w-full sm:w-auto px-3 sm:px-4 py-2.5 border border-slate-700 rounded-xl text-xs sm:text-sm font-medium bg-slate-800 text-slate-200 outline-none"
-              >
-                <option value="Todos">Todas as Provas</option>
-                {groupsList.filter(g => g !== 'Todos').map(g => <option key={g} value={g}>{titlePrefix}: {g}</option>)}
-              </select>
+        return e('div', { className: 'max-w-4xl mx-auto' },
+          e('div', { className: 'bg-slate-900 p-3 sm:p-4 rounded-t-2xl border border-slate-800 border-b-0 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 sm:gap-4' },
+            e('div', { className: 'flex flex-col sm:flex-row gap-2.5 sm:gap-3 w-full md:w-auto' },
+              e('select', {
+                value: selectedGroup,
+                onChange: function (ev) { setSelectedGroup(ev.target.value); setCurrentIndex(0); },
+                className: 'w-full sm:w-auto px-3 sm:px-4 py-2.5 border border-slate-700 rounded-xl text-xs sm:text-sm font-medium bg-slate-800 text-slate-200 outline-none'
+              },
+                [e('option', { key: 'Todos', value: 'Todos' }, 'Todas as Provas')].concat(
+                  groupsList.filter(function (g) { return g !== 'Todos'; }).map(function (g) {
+                    return e('option', { key: g, value: g }, titlePrefix + ': ' + g);
+                  })
+                )
+              ),
+              e('select', {
+                value: selectedArea,
+                onChange: function (ev) { setSelectedArea(ev.target.value); setCurrentIndex(0); },
+                className: 'w-full sm:w-auto px-3 sm:px-4 py-2.5 border border-slate-700 rounded-xl text-xs sm:text-sm font-medium bg-slate-800 text-slate-200 outline-none'
+              },
+                [e('option', { key: 'Todas', value: 'Todas' }, 'Todas as Áreas')].concat(
+                  AREAS.map(function (a) { return e('option', { key: a, value: a }, a); })
+                )
+              )
+            ),
+            e('div', { className: 'flex items-center justify-between sm:justify-center space-x-1 sm:space-x-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700' },
+              e('button', {
+                onClick: function () { jumpIndex(-10); },
+                disabled: currentIndex === 0,
+                className: 'px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-300 font-bold text-xs sm:text-sm disabled:opacity-30',
+                title: 'Voltar 10 questões'
+              }, '<<'),
+              e('button', {
+                onClick: function () { jumpIndex(-1); },
+                disabled: currentIndex === 0,
+                className: 'px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-200 font-bold text-xs sm:text-sm disabled:opacity-30',
+                title: 'Voltar 1 questão'
+              }, '<'),
+              e('span', { className: 'px-2 sm:px-3 font-semibold text-xs sm:text-sm text-slate-200 whitespace-nowrap' },
+                (currentIndex + 1) + ' / ' + currentQuestions.length
+              ),
+              e('button', {
+                onClick: function () { jumpIndex(1); },
+                disabled: currentIndex === currentQuestions.length - 1,
+                className: 'px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-200 font-bold text-xs sm:text-sm disabled:opacity-30',
+                title: 'Avançar 1 questão'
+              }, '>'),
+              e('button', {
+                onClick: function () { jumpIndex(10); },
+                disabled: currentIndex === currentQuestions.length - 1,
+                className: 'px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-300 font-bold text-xs sm:text-sm disabled:opacity-30',
+                title: 'Avançar 10 questões'
+              }, '>>')
+            )
+          ),
 
-              <select 
-                value={selectedArea} 
-                onChange={e => { setSelectedArea(e.target.value); setCurrentIndex(0); }}
-                className="w-full sm:w-auto px-3 sm:px-4 py-2.5 border border-slate-700 rounded-xl text-xs sm:text-sm font-medium bg-slate-800 text-slate-200 outline-none"
-              >
-                <option value="Todas">Todas as Áreas</option>
-                {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
+          e('div', { className: 'bg-slate-900 p-4 sm:p-6 md:p-10 rounded-b-2xl border border-slate-800 shadow-xl relative' },
+            e('div', { className: 'min-h-[360px] sm:min-h-[400px]' },
+              e('div', { className: 'flex flex-wrap items-center gap-2 sm:gap-3 mb-4 sm:mb-6' },
+                e('span', {
+                  className: 'px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm',
+                  style: { backgroundColor: getAreaColor(currentQ.area) }
+                }, currentQ.area),
+                e('span', { className: 'text-slate-400 text-xs sm:text-sm font-medium' }, currentQ.subtheme),
+                currentQ.groupLabel ? e('span', { className: 'text-slate-500 text-xs sm:text-sm font-medium border-l border-slate-700 pl-2.5 sm:pl-3' }, currentQ.groupLabel) : null
+              ),
+              e('p', { className: 'text-base sm:text-lg text-slate-100 leading-relaxed mb-6 sm:mb-8 font-medium whitespace-pre-line' }, currentQ.text),
+              e('div', { className: 'space-y-2.5 sm:space-y-3' },
+                currentQ.options.map(function (opt) {
+                  var letter = opt.id;
+                  var isEliminated = !!eliminated[opt.id];
+                  var btnClass = 'relative w-full text-left p-3.5 sm:p-4 rounded-xl border transition-all flex items-start group ';
 
-            <div className="flex items-center justify-between sm:justify-center space-x-1 sm:space-x-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700">
-              <button onClick={() => jumpIndex(-10)} disabled={currentIndex === 0} className="px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-300 font-bold text-xs sm:text-sm disabled:opacity-30" title="Voltar 10 questões">&lt;&lt;</button>
-              <button onClick={() => jumpIndex(-1)} disabled={currentIndex === 0} className="px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-200 font-bold text-xs sm:text-sm disabled:opacity-30" title="Voltar 1 questão">&lt;</button>
-              <span className="px-2 sm:px-3 font-semibold text-xs sm:text-sm text-slate-200 whitespace-nowrap">{currentIndex + 1} / {currentQuestions.length}</span>
-              <button onClick={() => jumpIndex(1)} disabled={currentIndex === currentQuestions.length - 1} className="px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-200 font-bold text-xs sm:text-sm disabled:opacity-30" title="Avançar 1 questão">&gt;</button>
-              <button onClick={() => jumpIndex(10)} disabled={currentIndex === currentQuestions.length - 1} className="px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-300 font-bold text-xs sm:text-sm disabled:opacity-30" title="Avançar 10 questões">&gt;&gt;</button>
-            </div>
-          </div>
-
-          <div className="bg-slate-900 p-4 sm:p-6 md:p-10 rounded-b-2xl border border-slate-800 shadow-xl relative">
-            <div className="min-h-[360px] sm:min-h-[400px]">
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-                <span className="px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm" style={{ backgroundColor: getAreaColor(currentQ.area) }}>{currentQ.area}</span>
-                <span className="text-slate-400 text-xs sm:text-sm font-medium">{currentQ.subtheme}</span>
-                {currentQ.groupLabel && <span className="text-slate-500 text-xs sm:text-sm font-medium border-l border-slate-700 pl-2.5 sm:pl-3">{currentQ.groupLabel}</span>}
-              </div>
-
-              <p className="text-base sm:text-lg text-slate-100 leading-relaxed mb-6 sm:mb-8 font-medium whitespace-pre-line">{currentQ.text}</p>
-
-              <div className="space-y-2.5 sm:space-y-3">
-                {currentQ.options.map((opt) => {
-                  const letter = opt.id;
-                  const isEliminated = eliminated[opt.id];
-                  let btnClass = "relative w-full text-left p-3.5 sm:p-4 rounded-xl border transition-all flex items-start group ";
-                  
                   if (currentQ.isAnnulled) {
-                    btnClass += "border-slate-800 bg-slate-950 opacity-50 cursor-not-allowed";
+                    btnClass += 'border-slate-800 bg-slate-950 opacity-50 cursor-not-allowed';
                   } else if (isConfirmed) {
-                    if (opt.isCorrect) btnClass += "bg-emerald-950/40 border-emerald-500/80 text-emerald-200";
-                    else if (confirmedOptionId === opt.id) btnClass += "bg-red-950/40 border-red-500/80 text-red-200";
-                    else btnClass += "border-slate-800 opacity-40 bg-slate-950 text-slate-500";
+                    if (opt.isCorrect) btnClass += 'bg-emerald-950/40 border-emerald-500/80 text-emerald-200';
+                    else if (confirmedOptionId === opt.id) btnClass += 'bg-red-950/40 border-red-500/80 text-red-200';
+                    else btnClass += 'border-slate-800 opacity-40 bg-slate-950 text-slate-500';
                   } else {
-                    if (isEliminated) btnClass += "border-slate-800 bg-slate-950 text-slate-600";
-                    else if (tempOptionId === opt.id) btnClass += "border-blue-500 bg-blue-950/30 text-blue-200 shadow-md";
-                    else btnClass += "border-slate-800 bg-slate-800/40 hover:border-blue-500/50 hover:bg-slate-800 text-slate-300";
+                    if (isEliminated) btnClass += 'border-slate-800 bg-slate-950 text-slate-600';
+                    else if (tempOptionId === opt.id) btnClass += 'border-blue-500 bg-blue-950/30 text-blue-200 shadow-md';
+                    else btnClass += 'border-slate-800 bg-slate-800/40 hover:border-blue-500/50 hover:bg-slate-800 text-slate-300';
                   }
 
-                  return (
-                    <button
-                      key={opt.id}
-                      disabled={isConfirmed || currentQ.isAnnulled}
-                      onClick={() => !isEliminated && setTempOptionId(opt.id)}
-                      className={btnClass}
-                    >
-                      <div className={`shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center font-bold mr-3 sm:mr-4 text-xs sm:text-sm transition-colors ${
-                        isConfirmed && opt.isCorrect ? 'bg-emerald-600 text-white' : 
-                        isConfirmed && confirmedOptionId === opt.id ? 'bg-red-600 text-white' :
-                        tempOptionId === opt.id ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'
-                      }`}>
-                        {letter}
-                      </div>
-                      <span className={`flex-1 pt-0.5 sm:pt-1 text-sm sm:text-base ${isEliminated ? 'line-through opacity-50' : ''}`}>{opt.text}</span>
-                      {!isConfirmed && !currentQ.isAnnulled && (
-                        <div onClick={(e) => toggleEliminate(e, opt.id)} className="shrink-0 ml-2 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-700 hover:text-slate-100" title="Riscar/Descartar alternativa">
-                          <Scissors className="w-4 h-4" />
-                        </div>
-                      )}
-                    </button>
+                  var badgeClass = 'shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center font-bold mr-3 sm:mr-4 text-xs sm:text-sm transition-colors ';
+                  if (isConfirmed && opt.isCorrect) badgeClass += 'bg-emerald-600 text-white';
+                  else if (isConfirmed && confirmedOptionId === opt.id) badgeClass += 'bg-red-600 text-white';
+                  else if (tempOptionId === opt.id) badgeClass += 'bg-blue-600 text-white';
+                  else badgeClass += 'bg-slate-700 text-slate-300';
+
+                  return e('button', {
+                    key: opt.id,
+                    disabled: isConfirmed || currentQ.isAnnulled,
+                    onClick: function () { if (!isEliminated) setTempOptionId(opt.id); },
+                    className: btnClass
+                  },
+                    e('div', { className: badgeClass }, letter),
+                    e('span', { className: 'flex-1 pt-0.5 sm:pt-1 text-sm sm:text-base ' + (isEliminated ? 'line-through opacity-50' : '') }, opt.text),
+                    (!isConfirmed && !currentQ.isAnnulled) ? e('div', {
+                      onClick: function (ev) { toggleEliminate(ev, opt.id); },
+                      className: 'shrink-0 ml-2 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-700 hover:text-slate-100',
+                      title: 'Riscar/Descartar alternativa'
+                    }, e(Scissors, { className: 'w-4 h-4' })) : null
                   );
-                })}
-              </div>
+                })
+              ),
 
-              <div className="mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-slate-800 flex justify-between items-center">
-                {!isConfirmed && !currentQ.isAnnulled ? (
-                  <button 
-                    onClick={handleConfirm}
-                    disabled={!tempOptionId}
-                    className="w-full sm:w-auto sm:ml-auto flex items-center justify-center bg-blue-600 text-white px-5 sm:px-6 py-3 min-h-[44px] rounded-xl font-bold hover:bg-blue-500 disabled:opacity-40 shadow-lg shadow-blue-900/30 text-sm sm:text-base"
-                  >
-                    <Check className="w-5 h-5 mr-2" /> Confirmar Resposta
-                  </button>
-                ) : (
-                  <div className="w-full space-y-4 animate-in slide-in-from-bottom-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-950 p-4 rounded-xl border border-slate-800 gap-3">
-                      <div className="flex items-center">
-                        {currentQ.isAnnulled ? (
-                          <span className="flex items-center text-slate-400 font-bold text-sm sm:text-base"><AlertCircle className="w-5 h-5 mr-2" /> Questão Anulada</span>
-                        ) : currentQ.options.find(o => o.id === confirmedOptionId)?.isCorrect ? (
-                          <span className="flex items-center text-emerald-400 font-bold text-sm sm:text-base"><Check className="w-5 h-5 mr-2" /> Acertou!</span>
-                        ) : (
-                          <span className="flex items-center text-red-400 font-bold text-sm sm:text-base"><X className="w-5 h-5 mr-2" /> Errou.</span>
-                        )}
-                      </div>
-                      
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
-                        <button 
-                          onClick={getAIExplanation}
-                          disabled={aiLoading}
-                          className="flex items-center justify-center bg-indigo-600 text-white px-4 py-2.5 min-h-[40px] rounded-xl font-medium hover:bg-indigo-500 text-xs sm:text-sm shadow-md disabled:opacity-70"
-                        >
-                          <Lightbulb className="w-4 h-4 mr-2" /> {aiLoading ? 'Analisando...' : 'Explicar com IA'}
-                        </button>
-                        <button 
-                          onClick={() => jumpIndex(1)}
-                          disabled={currentIndex === currentQuestions.length - 1}
-                          className="flex items-center justify-center bg-blue-600 text-white px-4 py-2.5 min-h-[40px] rounded-xl font-medium hover:bg-blue-500 text-xs sm:text-sm shadow-md disabled:opacity-40"
-                        >
-                          Seguinte &gt;
-                        </button>
-                      </div>
-                    </div>
+              e('div', { className: 'mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-slate-800 flex justify-between items-center' },
+                (!isConfirmed && !currentQ.isAnnulled) ? e('button', {
+                  onClick: handleConfirm,
+                  disabled: !tempOptionId,
+                  className: 'w-full sm:w-auto sm:ml-auto flex items-center justify-center bg-blue-600 text-white px-5 sm:px-6 py-3 min-h-[44px] rounded-xl font-bold hover:bg-blue-500 disabled:opacity-40 shadow-lg shadow-blue-900/30 text-sm sm:text-base'
+                }, e(Check, { className: 'w-5 h-5 mr-2' }), ' Confirmar Resposta')
+                : e('div', { className: 'w-full space-y-4' },
+                  e('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between bg-slate-950 p-4 rounded-xl border border-slate-800 gap-3' },
+                    e('div', { className: 'flex items-center' },
+                      currentQ.isAnnulled
+                        ? e('span', { className: 'flex items-center text-slate-400 font-bold text-sm sm:text-base' }, e(AlertCircle, { className: 'w-5 h-5 mr-2' }), ' Questão Anulada')
+                        : (confirmedOptObj && confirmedOptObj.isCorrect)
+                          ? e('span', { className: 'flex items-center text-emerald-400 font-bold text-sm sm:text-base' }, e(Check, { className: 'w-5 h-5 mr-2' }), ' Acertou!')
+                          : e('span', { className: 'flex items-center text-red-400 font-bold text-sm sm:text-base' }, e(XIcon, { className: 'w-5 h-5 mr-2' }), ' Errou.')
+                    ),
+                    e('div', { className: 'flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3' },
+                      e('button', {
+                        onClick: getAIExplanation,
+                        disabled: aiLoading,
+                        className: 'flex items-center justify-center bg-indigo-600 text-white px-4 py-2.5 min-h-[40px] rounded-xl font-medium hover:bg-indigo-500 text-xs sm:text-sm shadow-md disabled:opacity-70'
+                      }, e(Lightbulb, { className: 'w-4 h-4 mr-2' }), ' ', aiLoading ? 'Analisando...' : 'Explicar com IA'),
+                      e('button', {
+                        onClick: function () { jumpIndex(1); },
+                        disabled: currentIndex === currentQuestions.length - 1,
+                        className: 'flex items-center justify-center bg-blue-600 text-white px-4 py-2.5 min-h-[40px] rounded-xl font-medium hover:bg-blue-500 text-xs sm:text-sm shadow-md disabled:opacity-40'
+                      }, 'Seguinte >')
+                    )
+                  ),
+                  aiExplanation ? e('div', { className: 'bg-indigo-950/60 border border-indigo-900/60 p-4 sm:p-5 rounded-xl text-indigo-200 text-xs sm:text-sm leading-relaxed' },
+                    e('div', { className: 'flex items-center font-bold mb-2' },
+                      e(Lightbulb, { className: 'w-5 h-5 mr-2 text-indigo-400' }), ' Explicação Especializada'
+                    ),
+                    e('p', { className: 'whitespace-pre-line' }, aiExplanation)
+                  ) : null,
+                  e('div', { className: 'bg-slate-950 border border-slate-800 rounded-xl p-4' },
+                    e('h4', { className: 'text-xs sm:text-sm font-bold text-slate-300 mb-2 flex items-center' },
+                      e(FileText, { className: 'w-4 h-4 mr-2' }), ' Minhas Anotações Pessoais'
+                    ),
+                    e('textarea', {
+                      value: noteText,
+                      onChange: function (ev) { setNoteText(ev.target.value); },
+                      placeholder: 'Escreva suas anotações...',
+                      className: 'w-full min-h-[90px] p-3 text-xs sm:text-sm border border-slate-800 rounded-xl bg-slate-900 text-slate-200 outline-none'
+                    }),
+                    e('div', { className: 'flex justify-end mt-2' },
+                      e('button', {
+                        onClick: saveNote,
+                        className: 'flex items-center text-xs sm:text-sm font-medium text-blue-400 hover:text-blue-300 py-1 px-2'
+                      }, e(Save, { className: 'w-4 h-4 mr-1' }), ' Salvar Anotação')
+                    )
+                  )
+                )
+              )
+            )
+          )
+        );
+      }
 
-                    {aiExplanation && (
-                      <div className="bg-indigo-950/60 border border-indigo-900/60 p-4 sm:p-5 rounded-xl text-indigo-200 text-xs sm:text-sm leading-relaxed animate-in fade-in">
-                        <div className="flex items-center font-bold mb-2">
-                          <Lightbulb className="w-5 h-5 mr-2 text-indigo-400" /> Explicação Especializada
-                        </div>
-                        <p className="whitespace-pre-line">{aiExplanation}</p>
-                      </div>
-                    )}
+      function UploadView(props) {
+        var questions = props.questions;
+        var setQuestions = props.setQuestions;
+        var simQuestions = props.simQuestions;
+        var setSimQuestions = props.setSimQuestions;
+        var persistGlobalDb = props.persistGlobalDb;
+        var clearData = props.clearData;
+        var clearProgress = props.clearProgress;
 
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                      <h4 className="text-xs sm:text-sm font-bold text-slate-300 mb-2 flex items-center"><FileText className="w-4 h-4 mr-2" /> Minhas Anotações Pessoais</h4>
-                      <textarea
-                        value={noteText}
-                        onChange={(e) => setNoteText(e.target.value)}
-                        placeholder="Escreva suas anotações..."
-                        className="w-full min-h-[90px] p-3 text-xs sm:text-sm border border-slate-800 rounded-xl bg-slate-900 text-slate-200 outline-none"
-                      />
-                      <div className="flex justify-end mt-2">
-                        <button onClick={saveNote} className="flex items-center text-xs sm:text-sm font-medium text-blue-400 hover:text-blue-300 py-1 px-2">
-                          <Save className="w-4 h-4 mr-1" /> Salvar Anotação
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
+        var sBulk = useState(''); var bulkText = sBulk[0]; var setBulkText = sBulk[1];
+        var sYear = useState('2026'); var examYear = sYear[0]; var setExamYear = sYear[1];
+        var sSimName = useState('Simulado Integrado'); var simName = sSimName[0]; var setSimName = sSimName[1];
+        var sSimNum = useState('1'); var simNumber = sSimNum[0]; var setSimNumber = sSimNum[1];
+        var sErr = useState(''); var errorMsg = sErr[0]; var setErrorMsg = sErr[1];
+        var sOk = useState(''); var successMsg = sOk[0]; var setSuccessMsg = sOk[1];
+        var sSav = useState(false); var saving = sSav[0]; var setSaving = sSav[1];
+        var sDelY = useState('2026'); var deleteYear = sDelY[0]; var setDeleteYear = sDelY[1];
+        var sDelA = useState('Todas'); var deleteArea = sDelA[0]; var setDeleteArea = sDelA[1];
 
-    function UploadView({ questions, setQuestions, simQuestions, setSimQuestions, persistGlobalDb, clearData, clearProgress }) {
-      const [bulkText, setBulkText] = useState('');
-      const [examYear, setExamYear] = useState('2026');
-      const [simName, setSimName] = useState('Simulado Integrado');
-      const [simNumber, setSimNumber] = useState('1');
-      const [errorMsg, setErrorMsg] = useState('');
-      const [successMsg, setSuccessMsg] = useState('');
-      const [saving, setSaving] = useState(false);
+        function parseQuestions(text, defaultExam, defaultYear, isSim, groupLabel) {
+          var rawLines = text.split('\n');
+          var lines = [];
+          var currentLine = '';
 
-      const [deleteYear, setDeleteYear] = useState('2026');
-      const [deleteArea, setDeleteArea] = useState('Todas');
-
-      const parseQuestions = (text, defaultExam, defaultYear, isSim = false, groupLabel = '') => {
-        const rawLines = text.split('\n');
-        const lines = [];
-        let currentLine = '';
-
-        for (let i = 0; i < rawLines.length; i++) {
-          const line = rawLines[i].trim();
-          if (!line) continue;
-          
-          if (!currentLine) {
-            currentLine = line;
-          } else {
-            const partsCount = currentLine.split('|').length;
-            if (partsCount < 9) {
-              currentLine += ' ' + line;
-            } else {
-              lines.push(currentLine);
+          for (var i = 0; i < rawLines.length; i++) {
+            var line = rawLines[i].trim();
+            if (!line) continue;
+            if (!currentLine) {
               currentLine = line;
+            } else {
+              var partsCount = currentLine.split('|').length;
+              if (partsCount < 9) {
+                currentLine += ' ' + line;
+              } else {
+                lines.push(currentLine);
+                currentLine = line;
+              }
             }
           }
-        }
-        if (currentLine) lines.push(currentLine);
+          if (currentLine) lines.push(currentLine);
 
-        return lines.map((line, index) => {
-          const parts = line.split('|');
-          if (parts.length < 9) {
-            throw new Error(`A linha ${index + 1} não possui as 9 colunas exigidas (separadas por '|').`);
+          return lines.map(function (line, index) {
+            var parts = line.split('|');
+            if (parts.length < 9) {
+              throw new Error('A linha ' + (index + 1) + ' não possui as 9 colunas exigidas (separadas por \'|\').');
+            }
+
+            var area = parts[0].trim();
+            var areaUpper = area.toUpperCase();
+            if (areaUpper.indexOf('FAMÍLIA') !== -1 || areaUpper.indexOf('FAMILIA') !== -1 || areaUpper === 'MFC' || areaUpper.indexOf('PREVENTIVA') !== -1) {
+              area = 'Medicina da Família e Comunidade';
+            } else if (areaUpper.indexOf('CIRURGIA') !== -1) {
+              area = 'Cirurgia Geral';
+            } else if (areaUpper.indexOf('GINECOLOGIA') !== -1 || areaUpper === 'GO' || areaUpper.indexOf('OBSTETR') !== -1) {
+              area = 'Ginecologia & Obstetrícia';
+            } else if (areaUpper.indexOf('CLÍNICA') !== -1 || areaUpper.indexOf('CLINICA') !== -1) {
+              area = 'Clínica Médica';
+            } else if (areaUpper.indexOf('PEDIATRIA') !== -1 || areaUpper === 'PED') {
+              area = 'Pediatria';
+            }
+
+            var subtheme = parts[1].trim();
+            var textContent = parts[2].trim();
+            var altA = parts[3].trim();
+            var altB = parts[4].trim();
+            var altC = parts[5].trim();
+            var altD = parts[6].trim();
+            var altE = parts[7].trim();
+
+            var gabarito = (parts[8] || '').trim();
+            var gabaritoFormatado = gabarito.toUpperCase();
+            var isAnnulled = gabaritoFormatado === 'ANULADA' || gabaritoFormatado === 'NULA' || gabaritoFormatado === '-' || gabaritoFormatado === '';
+
+            return {
+              id: 'q_' + (isSim ? 'sim' : 'uepa') + '_' + Date.now() + '_' + index,
+              exam: defaultExam,
+              year: parseInt(defaultYear, 10) || 2026,
+              groupLabel: groupLabel || String(defaultYear),
+              area: area,
+              subtheme: subtheme || 'Geral',
+              text: textContent,
+              isAnnulled: isAnnulled,
+              options: [
+                { id: 'A', text: altA, isCorrect: gabaritoFormatado === 'A' },
+                { id: 'B', text: altB, isCorrect: gabaritoFormatado === 'B' },
+                { id: 'C', text: altC, isCorrect: gabaritoFormatado === 'C' },
+                { id: 'D', text: altD, isCorrect: gabaritoFormatado === 'D' },
+                { id: 'E', text: altE, isCorrect: gabaritoFormatado === 'E' }
+              ]
+            };
+          });
+        }
+
+        function handleImportUepa() {
+          setErrorMsg('');
+          setSuccessMsg('');
+          if (!bulkText.trim()) return;
+          setSaving(true);
+          try {
+            var parsed = parseQuestions(bulkText, 'UEPA', examYear, false, String(examYear));
+            var nextQuestions = questions.concat(parsed);
+            persistGlobalDb(nextQuestions, simQuestions)
+              .then(function () {
+                setQuestions(nextQuestions);
+                setBulkText('');
+                setSuccessMsg(parsed.length + ' questão(ões) salva(s) no banco global (UEPA).');
+              })
+              .catch(function (err) { setErrorMsg(err.message); })
+              .finally(function () { setSaving(false); });
+          } catch (err) {
+            setErrorMsg(err.message);
+            setSaving(false);
           }
+        }
 
-          let area = parts[0].trim();
-          const areaUpper = area.toUpperCase();
-          if (areaUpper.includes('FAMÍLIA') || areaUpper.includes('FAMILIA') || areaUpper === 'MFC' || areaUpper.includes('PREVENTIVA')) {
-            area = 'Medicina da Família e Comunidade';
-          } else if (areaUpper.includes('CIRURGIA')) {
-            area = 'Cirurgia Geral';
-          } else if (areaUpper.includes('GINECOLOGIA') || areaUpper === 'GO' || areaUpper.includes('OBSTETR')) {
-            area = 'Ginecologia & Obstetrícia';
-          } else if (areaUpper.includes('CLÍNICA') || areaUpper.includes('CLINICA')) {
-            area = 'Clínica Médica';
-          } else if (areaUpper.includes('PEDIATRIA') || areaUpper === 'PED') {
-            area = 'Pediatria';
+        function handleImportSimulado() {
+          setErrorMsg('');
+          setSuccessMsg('');
+          if (!bulkText.trim()) return;
+          setSaving(true);
+          try {
+            var groupLabel = simName + ' #' + simNumber;
+            var parsed = parseQuestions(bulkText, simName, new Date().getFullYear(), true, groupLabel);
+            var nextSimQuestions = simQuestions.concat(parsed);
+            persistGlobalDb(questions, nextSimQuestions)
+              .then(function () {
+                setSimQuestions(nextSimQuestions);
+                setBulkText('');
+                setSuccessMsg(parsed.length + ' questão(ões) salva(s) no banco global (Simulados).');
+              })
+              .catch(function (err) { setErrorMsg(err.message); })
+              .finally(function () { setSaving(false); });
+          } catch (err) {
+            setErrorMsg(err.message);
+            setSaving(false);
           }
-
-          const subtheme = parts[1].trim();
-          const textContent = parts[2].trim();
-          const altA = parts[3].trim();
-          const altB = parts[4].trim();
-          const altC = parts[5].trim();
-          const altD = parts[6].trim();
-          const altE = parts[7].trim();
-          
-          const gabarito = parts[8]?.trim() || ''; 
-          const gabaritoFormatado = gabarito.toUpperCase();
-          const isAnnulled = gabaritoFormatado === 'ANULADA' || gabaritoFormatado === 'NULA' || gabaritoFormatado === '-' || gabaritoFormatado === '';
-
-          const options = [
-            { id: 'A', text: altA, isCorrect: gabaritoFormatado === 'A' },
-            { id: 'B', text: altB, isCorrect: gabaritoFormatado === 'B' },
-            { id: 'C', text: altC, isCorrect: gabaritoFormatado === 'C' },
-            { id: 'D', text: altD, isCorrect: gabaritoFormatado === 'D' },
-            { id: 'E', text: altE, isCorrect: gabaritoFormatado === 'E' },
-          ];
-
-          return {
-            id: `q_${isSim ? 'sim' : 'uepa'}_${Date.now()}_${index}`,
-            exam: defaultExam,
-            year: parseInt(defaultYear) || 2026,
-            groupLabel: groupLabel || `${defaultYear}`,
-            area,
-            subtheme: subtheme || 'Geral',
-            text: textContent,
-            isAnnulled,
-            options
-          };
-        });
-      };
-
-      const handleImportUepa = async () => {
-        setErrorMsg('');
-        setSuccessMsg('');
-        if (!bulkText.trim()) return;
-        setSaving(true);
-        try {
-          const label = examYear.toString();
-          const parsed = parseQuestions(bulkText, 'UEPA', examYear, false, label);
-          const nextQuestions = [...questions, ...parsed];
-          await persistGlobalDb(nextQuestions, simQuestions);
-          setQuestions(nextQuestions);
-          setBulkText('');
-          setSuccessMsg(`${parsed.length} questão(ões) salva(s) no banco global (UEPA).`);
-        } catch (err) {
-          setErrorMsg(err.message);
-        } finally {
-          setSaving(false);
         }
-      };
 
-      const handleImportSimulado = async () => {
-        setErrorMsg('');
-        setSuccessMsg('');
-        if (!bulkText.trim()) return;
-        setSaving(true);
-        try {
-          const groupLabel = `${simName} #${simNumber}`;
-          const parsed = parseQuestions(bulkText, simName, new Date().getFullYear(), true, groupLabel);
-          const nextSimQuestions = [...simQuestions, ...parsed];
-          await persistGlobalDb(questions, nextSimQuestions);
-          setSimQuestions(nextSimQuestions);
-          setBulkText('');
-          setSuccessMsg(`${parsed.length} questão(ões) salva(s) no banco global (Simulados).`);
-        } catch (err) {
-          setErrorMsg(err.message);
-        } finally {
-          setSaving(false);
-        }
-      };
-
-      const handleFilteredDelete = async () => {
-        setErrorMsg('');
-        setSuccessMsg('');
-        setSaving(true);
-        try {
-          const targetYear = deleteYear.trim();
-          const filterFn = (q) => {
-            const matchYear = !targetYear || q.year.toString() === targetYear || q.groupLabel?.includes(targetYear);
-            const matchArea = deleteArea === 'Todas' || q.area === deleteArea;
+        function handleFilteredDelete() {
+          setErrorMsg('');
+          setSuccessMsg('');
+          setSaving(true);
+          var targetYear = deleteYear.trim();
+          var filterFn = function (q) {
+            var matchYear = !targetYear || String(q.year) === targetYear || (q.groupLabel && q.groupLabel.indexOf(targetYear) !== -1);
+            var matchArea = deleteArea === 'Todas' || q.area === deleteArea;
             return !(matchYear && matchArea);
           };
 
-          const nextQuestions = questions.filter(filterFn);
-          const nextSimQuestions = simQuestions.filter(filterFn);
-          await persistGlobalDb(nextQuestions, nextSimQuestions);
-          setQuestions(nextQuestions);
-          setSimQuestions(nextSimQuestions);
-          setSuccessMsg('Filtro aplicado e banco global atualizado.');
-        } catch (err) {
-          setErrorMsg(err.message);
-        } finally {
-          setSaving(false);
+          var nextQuestions = questions.filter(filterFn);
+          var nextSimQuestions = simQuestions.filter(filterFn);
+          persistGlobalDb(nextQuestions, nextSimQuestions)
+            .then(function () {
+              setQuestions(nextQuestions);
+              setSimQuestions(nextSimQuestions);
+              setSuccessMsg('Filtro aplicado e banco global atualizado.');
+            })
+            .catch(function (err) { setErrorMsg(err.message); })
+            .finally(function () { setSaving(false); });
         }
-      };
 
-      return (
-        <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 animate-in fade-in duration-300">
-          <div className="bg-slate-900 p-4 sm:p-8 rounded-2xl border border-slate-800 shadow-xl">
-            <div className="flex items-center mb-5 sm:mb-6">
-              <div className="bg-indigo-600/20 p-2.5 sm:p-3 rounded-2xl mr-3 sm:mr-4 border border-indigo-500/30 shrink-0">
-                <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-white">Banco de Dados Base (Global e Aberto)</h2>
-                <p className="text-slate-400 text-xs sm:text-sm mt-1">Qualquer usuário pode importar questões livremente. Tudo fica salvo imediatamente na nuvem para todos.</p>
-              </div>
-            </div>
+        return e('div', { className: 'max-w-3xl mx-auto space-y-4 sm:space-y-6' },
+          e('div', { className: 'bg-slate-900 p-4 sm:p-8 rounded-2xl border border-slate-800 shadow-xl' },
+            e('div', { className: 'flex items-center mb-5 sm:mb-6' },
+              e('div', { className: 'bg-indigo-600/20 p-2.5 sm:p-3 rounded-2xl mr-3 sm:mr-4 border border-indigo-500/30 shrink-0' },
+                e(Upload, { className: 'w-5 h-5 sm:w-6 sm:h-6 text-indigo-400' })
+              ),
+              e('div', null,
+                e('h2', { className: 'text-xl sm:text-2xl font-bold text-white' }, 'Banco de Dados Base (Global e Aberto)'),
+                e('p', { className: 'text-slate-400 text-xs sm:text-sm mt-1' },
+                  'Qualquer usuário pode importar questões livremente. Tudo fica salvo imediatamente na nuvem para todos.'
+                )
+              )
+            ),
+            e('div', { className: 'bg-slate-950 border border-slate-800 rounded-xl p-4 sm:p-6 mb-5 sm:mb-6' },
+              e('p', { className: 'text-xs sm:text-sm font-medium text-slate-300 mb-2' }, 'Padrão Obrigatório (9 Colunas separadas por Pipe |):'),
+              e('code', { className: 'block bg-slate-900 p-3 rounded-lg text-slate-300 text-[11px] sm:text-xs font-mono overflow-x-auto border border-slate-800' },
+                'Área | Subtema | Enunciado da questão | Alt A | Alt B | Alt C | Alt D | Alt E | Gabarito (A/B/C/D/E ou Anulada)'
+              )
+            ),
+            e('textarea', {
+              className: 'w-full h-44 sm:h-52 p-3.5 sm:p-4 border border-slate-800 rounded-xl font-mono text-xs sm:text-sm bg-slate-950 text-slate-200 outline-none mb-5 sm:mb-6 resize-y',
+              placeholder: 'Cole as questões usando | como separador...',
+              value: bulkText,
+              onChange: function (ev) { setBulkText(ev.target.value); }
+            }),
+            errorMsg ? e('div', { className: 'mb-5 sm:mb-6 p-3 bg-red-950/60 border border-red-900 text-red-300 text-xs sm:text-sm rounded-xl flex items-center' },
+              e(AlertCircle, { className: 'w-4 h-4 mr-2 shrink-0' }), ' ', errorMsg
+            ) : null,
+            successMsg ? e('div', { className: 'mb-5 sm:mb-6 p-3 bg-emerald-950/60 border border-emerald-900 text-emerald-300 text-xs sm:text-sm rounded-xl flex items-center' },
+              e(Check, { className: 'w-4 h-4 mr-2 shrink-0' }), ' ', successMsg
+            ) : null,
+            e('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-4 border-t border-slate-800' },
+              e('div', { className: 'bg-slate-950 p-4 sm:p-5 rounded-xl border border-slate-800 flex flex-col justify-between' },
+                e('div', null,
+                  e('h3', { className: 'font-bold text-white mb-3 flex items-center text-xs sm:text-sm' },
+                    e(Archive, { className: 'w-4 h-4 mr-2 text-blue-400' }), ' Destino: UEPA PROVAS (Base)'
+                  ),
+                  e('div', { className: 'mb-4' },
+                    e('label', { className: 'block text-xs font-medium text-slate-400 mb-1' }, 'Ano da Prova UEPA'),
+                    e('input', {
+                      type: 'number',
+                      value: examYear,
+                      onChange: function (ev) { setExamYear(ev.target.value); },
+                      className: 'w-full p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 outline-none'
+                    })
+                  )
+                ),
+                e('button', {
+                  disabled: saving,
+                  onClick: handleImportUepa,
+                  className: 'w-full bg-blue-600 text-white font-bold py-2.5 min-h-[42px] rounded-xl hover:bg-blue-500 text-xs sm:text-sm disabled:opacity-50'
+                }, saving ? 'Salvando...' : 'Importar para Banco Base UEPA')
+              ),
+              e('div', { className: 'bg-slate-950 p-4 sm:p-5 rounded-xl border border-slate-800 flex flex-col justify-between' },
+                e('div', null,
+                  e('h3', { className: 'font-bold text-white mb-3 flex items-center text-xs sm:text-sm' },
+                    e(BookOpen, { className: 'w-4 h-4 mr-2 text-indigo-400' }), ' Destino: Simulados (Base)'
+                  ),
+                  e('div', { className: 'grid grid-cols-2 gap-2 mb-4' },
+                    e('div', null,
+                      e('label', { className: 'block text-xs font-medium text-slate-400 mb-1' }, 'Nome'),
+                      e('input', {
+                        type: 'text',
+                        value: simName,
+                        onChange: function (ev) { setSimName(ev.target.value); },
+                        className: 'w-full p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 outline-none'
+                      })
+                    ),
+                    e('div', null,
+                      e('label', { className: 'block text-xs font-medium text-slate-400 mb-1' }, 'Número'),
+                      e('input', {
+                        type: 'text',
+                        value: simNumber,
+                        onChange: function (ev) { setSimNumber(ev.target.value); },
+                        className: 'w-full p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 outline-none'
+                      })
+                    )
+                  )
+                ),
+                e('button', {
+                  disabled: saving,
+                  onClick: handleImportSimulado,
+                  className: 'w-full bg-indigo-600 text-white font-bold py-2.5 min-h-[42px] rounded-xl hover:bg-indigo-500 text-xs sm:text-sm disabled:opacity-50'
+                }, saving ? 'Salvando...' : 'Importar para Banco Base Simulados')
+              )
+            )
+          ),
 
-            <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 sm:p-6 mb-5 sm:mb-6">
-              <p className="text-xs sm:text-sm font-medium text-slate-300 mb-2">Padrão Obrigatório (9 Colunas separadas por Pipe |):</p>
-              <code className="block bg-slate-900 p-3 rounded-lg text-slate-300 text-[11px] sm:text-xs font-mono overflow-x-auto border border-slate-800">
-                Área | Subtema | Enunciado da questão | Alt A | Alt B | Alt C | Alt D | Alt E | Gabarito (A/B/C/D/E ou Anulada)
-              </code>
-            </div>
+          e('div', { className: 'bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-xl mt-6 sm:mt-8' },
+            e('h3', { className: 'text-base sm:text-lg font-bold text-slate-200 mb-2' }, 'Exclusão de Questões do Banco Base'),
+            e('p', { className: 'text-slate-400 text-xs sm:text-sm mb-5 sm:mb-6' },
+              'Selecione o ano e a grande área desejada para remover itens do banco global compartilhado.'
+            ),
+            e('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-5 sm:mb-6' },
+              e('div', null,
+                e('label', { className: 'block text-xs font-medium text-slate-400 mb-1.5' }, 'Ano / Prova (Ex: 2026)'),
+                e('input', {
+                  type: 'text',
+                  value: deleteYear,
+                  onChange: function (ev) { setDeleteYear(ev.target.value); },
+                  className: 'w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 outline-none'
+                })
+              ),
+              e('div', null,
+                e('label', { className: 'block text-xs font-medium text-slate-400 mb-1.5' }, 'Grande Área'),
+                e('select', {
+                  value: deleteArea,
+                  onChange: function (ev) { setDeleteArea(ev.target.value); },
+                  className: 'w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 outline-none'
+                },
+                  [e('option', { key: 'Todas', value: 'Todas' }, 'Todas as Grandes Áreas')].concat(
+                    AREAS.map(function (a) { return e('option', { key: a, value: a }, a); })
+                  )
+                )
+              )
+            ),
+            e('div', { className: 'mb-5 sm:mb-6' },
+              e('button', {
+                disabled: saving,
+                onClick: handleFilteredDelete,
+                className: 'w-full bg-rose-600 text-white font-bold py-3 min-h-[44px] px-4 rounded-xl hover:bg-rose-500 transition-colors shadow-lg shadow-rose-900/30 text-xs sm:text-sm disabled:opacity-50'
+              }, 'Apagar Questões do Banco Base Correspondentes aos Filtros')
+            ),
+            e('div', { className: 'flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-slate-800' },
+              e('button', {
+                onClick: clearProgress,
+                className: 'flex-1 bg-slate-800 border border-slate-700 text-red-400 font-bold py-3 min-h-[44px] px-4 rounded-xl hover:bg-slate-700 text-xs sm:text-sm'
+              }, 'Zerar Meu Progresso Pessoal'),
+              e('button', {
+                onClick: clearData,
+                className: 'flex-1 bg-red-600 text-white font-bold py-3 min-h-[44px] px-4 rounded-xl hover:bg-red-500 text-xs sm:text-sm shadow-lg shadow-red-900/30'
+              }, 'Apagar Todo o Banco Global')
+            )
+          )
+        );
+      }
 
-            <textarea 
-              className="w-full h-44 sm:h-52 p-3.5 sm:p-4 border border-slate-800 rounded-xl font-mono text-xs sm:text-sm bg-slate-950 text-slate-200 outline-none mb-5 sm:mb-6 resize-y"
-              placeholder="Cole as questões usando | como separador..."
-              value={bulkText}
-              onChange={(e) => setBulkText(e.target.value)}
-            />
-
-            {errorMsg && (
-              <div className="mb-5 sm:mb-6 p-3 bg-red-950/60 border border-red-900 text-red-300 text-xs sm:text-sm rounded-xl flex items-center">
-                <AlertCircle className="w-4 h-4 mr-2 shrink-0" /> {errorMsg}
-              </div>
-            )}
-
-            {successMsg && (
-              <div className="mb-5 sm:mb-6 p-3 bg-emerald-950/60 border border-emerald-900 text-emerald-300 text-xs sm:text-sm rounded-xl flex items-center">
-                <Check className="w-4 h-4 mr-2 shrink-0" /> {successMsg}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-4 border-t border-slate-800">
-              <div className="bg-slate-950 p-4 sm:p-5 rounded-xl border border-slate-800 flex flex-col justify-between">
-                <div>
-                  <h3 className="font-bold text-white mb-3 flex items-center text-xs sm:text-sm">
-                    <Archive className="w-4 h-4 mr-2 text-blue-400" /> Destino: UEPA PROVAS (Base)
-                  </h3>
-                  <div className="mb-4">
-                    <label className="block text-xs font-medium text-slate-400 mb-1">Ano da Prova UEPA</label>
-                    <input 
-                      type="number" 
-                      value={examYear}
-                      onChange={e => setExamYear(e.target.value)}
-                      className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 outline-none"
-                    />
-                  </div>
-                </div>
-                <button disabled={saving} onClick={handleImportUepa} className="w-full bg-blue-600 text-white font-bold py-2.5 min-h-[42px] rounded-xl hover:bg-blue-500 text-xs sm:text-sm disabled:opacity-50">
-                  {saving ? 'Salvando...' : 'Importar para Banco Base UEPA'}
-                </button>
-              </div>
-
-              <div className="bg-slate-950 p-4 sm:p-5 rounded-xl border border-slate-800 flex flex-col justify-between">
-                <div>
-                  <h3 className="font-bold text-white mb-3 flex items-center text-xs sm:text-sm">
-                    <BookOpen className="w-4 h-4 mr-2 text-indigo-400" /> Destino: Simulados (Base)
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2 mb-4">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Nome</label>
-                      <input 
-                        type="text" 
-                        value={simName}
-                        onChange={e => setSimName(e.target.value)}
-                        className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Número</label>
-                      <input 
-                        type="text" 
-                        value={simNumber}
-                        onChange={e => setSimNumber(e.target.value)}
-                        className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <button disabled={saving} onClick={handleImportSimulado} className="w-full bg-indigo-600 text-white font-bold py-2.5 min-h-[42px] rounded-xl hover:bg-indigo-500 text-xs sm:text-sm disabled:opacity-50">
-                  {saving ? 'Salvando...' : 'Importar para Banco Base Simulados'}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-xl mt-6 sm:mt-8">
-            <h3 className="text-base sm:text-lg font-bold text-slate-200 mb-2">Exclusão de Questões do Banco Base</h3>
-            <p className="text-slate-400 text-xs sm:text-sm mb-5 sm:mb-6">Selecione o ano e a grande área desejada para remover itens do banco global compartilhado.</p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-5 sm:mb-6">
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">Ano / Prova (Ex: 2026)</label>
-                <input 
-                  type="text" 
-                  value={deleteYear}
-                  onChange={e => setDeleteYear(e.target.value)}
-                  className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">Grande Área</label>
-                <select 
-                  value={deleteArea}
-                  onChange={e => setDeleteArea(e.target.value)}
-                  className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 outline-none"
-                >
-                  <option value="Todas">Todas as Grandes Áreas</option>
-                  {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="mb-5 sm:mb-6">
-              <button 
-                disabled={saving}
-                onClick={handleFilteredDelete} 
-                className="w-full bg-rose-600 text-white font-bold py-3 min-h-[44px] px-4 rounded-xl hover:bg-rose-500 transition-colors shadow-lg shadow-rose-900/30 text-xs sm:text-sm disabled:opacity-50"
-              >
-                Apagar Questões do Banco Base Correspondentes aos Filtros
-              </button>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-slate-800">
-              <button onClick={clearProgress} className="flex-1 bg-slate-800 border border-slate-700 text-red-400 font-bold py-3 min-h-[44px] px-4 rounded-xl hover:bg-slate-700 text-xs sm:text-sm">
-                Zerar Meu Progresso Pessoal
-              </button>
-              <button onClick={clearData} className="flex-1 bg-red-600 text-white font-bold py-3 min-h-[44px] px-4 rounded-xl hover:bg-red-500 text-xs sm:text-sm shadow-lg shadow-red-900/30">
-                Apagar Todo o Banco Global
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+      ReactDOM.createRoot(document.getElementById('root')).render(e(App));
+    })();
   </script>
 </body>
 </html>
