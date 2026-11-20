@@ -40,7 +40,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo, useRef } = React;
     
     // Configuração Supabase
     const SUPABASE_URL = 'https://naoaeuqotcjzxagllkiz.supabase.co';
@@ -315,13 +315,62 @@
       const [activeTab, setActiveTab] = useState('dashboard');
       const [isDataLoaded, setIsDataLoaded] = useState(false);
       const [syncStatus, setSyncStatus] = useState('Conectando ao Banco Global...');
+      const canAutoSaveGlobal = useRef(false);
+      const canAutoSaveUser = useRef(false);
       
       const [questions, setQuestions] = useState([]);
       const [simQuestions, setSimQuestions] = useState([]);
       const [progress, setProgress] = useState({});
       const [notes, setNotes] = useState({});
 
+      const persistGlobalDb = async (nextQuestions, nextSimQuestions) => {
+        if (!supabaseClient) {
+          throw new Error('Cliente Supabase não inicializado.');
+        }
+        setSyncStatus('Salvando no Banco Global...');
+        const { error } = await supabaseClient
+          .from('medflow_cloud_storage')
+          .upsert([
+            {
+              key: 'global_db',
+              value: { questions: nextQuestions, simQuestions: nextSimQuestions },
+              updated_at: new Date().toISOString()
+            }
+          ], { onConflict: 'key' });
+
+        if (error) {
+          setSyncStatus(`Erro Global: ${error.message}`);
+          throw new Error(`Falha ao salvar no banco global: ${error.message}`);
+        }
+        setSyncStatus('Banco Global Ativo');
+      };
+
+      const persistUserStorage = async (nextProgress, nextNotes) => {
+        if (!supabaseClient) return;
+        setSyncStatus('Salvando Progresso...');
+        const { error } = await supabaseClient
+          .from('medflow_cloud_storage')
+          .upsert([
+            {
+              key: `user_global_${currentUser.username}`,
+              value: { progress: nextProgress, notes: nextNotes },
+              updated_at: new Date().toISOString()
+            }
+          ], { onConflict: 'key' });
+
+        if (error) {
+          console.error('Erro ao salvar progresso:', error.message);
+          setSyncStatus(`Erro Progresso: ${error.message}`);
+        } else {
+          setSyncStatus('Banco Global Ativo');
+        }
+      };
+
       useEffect(() => {
+        let active = true;
+        canAutoSaveGlobal.current = false;
+        canAutoSaveUser.current = false;
+
         async function loadCloudData() {
           if (!supabaseClient) {
             setSyncStatus('Erro de Conexão Cloud');
@@ -329,77 +378,90 @@
             return;
           }
           try {
-            const { data: cloudData } = await supabaseClient
+            const { data: cloudData, error: globalErr } = await supabaseClient
               .from('medflow_cloud_storage')
               .select('*')
               .eq('key', 'global_db')
-              .single();
-            
-            if (cloudData && cloudData.value) {
-              if (cloudData.value.questions) setQuestions(cloudData.value.questions);
-              if (cloudData.value.simQuestions) setSimQuestions(cloudData.value.simQuestions);
+              .maybeSingle();
+
+            if (!active) return;
+
+            if (globalErr) {
+              console.error('Erro ao ler global_db:', globalErr.message);
+              setSyncStatus(`Erro Leitura: ${globalErr.message}`);
+            } else {
+              if (cloudData && cloudData.value) {
+                setQuestions(Array.isArray(cloudData.value.questions) ? cloudData.value.questions : []);
+                setSimQuestions(Array.isArray(cloudData.value.simQuestions) ? cloudData.value.simQuestions : []);
+              }
+              canAutoSaveGlobal.current = true;
+              setSyncStatus('Banco Global Ativo');
             }
 
-            const { data: userCloud } = await supabaseClient
+            const { data: userCloud, error: userErr } = await supabaseClient
               .from('medflow_cloud_storage')
               .select('*')
               .eq('key', `user_global_${currentUser.username}`)
-              .single();
+              .maybeSingle();
 
-            if (userCloud && userCloud.value) {
-              if (userCloud.value.progress) setProgress(userCloud.value.progress);
-              if (userCloud.value.notes) setNotes(userCloud.value.notes);
+            if (!active) return;
+
+            if (userErr) {
+              console.error('Erro ao ler progresso do usuário:', userErr.message);
+            } else {
+              if (userCloud && userCloud.value) {
+                setProgress(userCloud.value.progress && typeof userCloud.value.progress === 'object' ? userCloud.value.progress : {});
+                setNotes(userCloud.value.notes && typeof userCloud.value.notes === 'object' ? userCloud.value.notes : {});
+              }
+              canAutoSaveUser.current = true;
             }
-
-            setSyncStatus('Banco Global Ativo');
           } catch (e) {
             console.error("Erro ao carregar dados globais", e);
-            setSyncStatus('Erro ao Sincronizar');
+            if (active) setSyncStatus('Erro ao Sincronizar');
           } finally {
-            setIsDataLoaded(true);
+            if (active) setIsDataLoaded(true);
           }
         }
         loadCloudData();
+        return () => { active = false; };
       }, [currentUser.username]);
 
+      const isFirstGlobalRender = useRef(true);
       useEffect(() => {
-        if (!isDataLoaded || !supabaseClient) return;
-        setSyncStatus('Salvando no Banco Global...');
-        supabaseClient
-          .from('medflow_cloud_storage')
-          .upsert([
-            { key: 'global_db', value: { questions, simQuestions }, updated_at: new Date() }
-          ], { onConflict: 'key' })
-          .then(({ error }) => {
-            if (!error) setSyncStatus('Banco Global Ativo');
-            else setSyncStatus('Erro ao Salvar Global');
-          });
+        if (!isDataLoaded || !canAutoSaveGlobal.current) return;
+        if (isFirstGlobalRender.current) {
+          isFirstGlobalRender.current = false;
+          return;
+        }
+        persistGlobalDb(questions, simQuestions).catch(err => console.error(err.message));
       }, [questions, simQuestions, isDataLoaded]);
 
+      const isFirstUserRender = useRef(true);
       useEffect(() => {
-        if (!isDataLoaded || !supabaseClient) return;
-        setSyncStatus('Salvando Progresso...');
-        supabaseClient
-          .from('medflow_cloud_storage')
-          .upsert([
-            { key: `user_global_${currentUser.username}`, value: { progress, notes }, updated_at: new Date() }
-          ], { onConflict: 'key' })
-          .then(({ error }) => {
-            if (!error) setSyncStatus('Banco Global Ativo');
-            else setSyncStatus('Erro ao Salvar Progresso');
-          });
+        if (!isDataLoaded || !canAutoSaveUser.current) return;
+        if (isFirstUserRender.current) {
+          isFirstUserRender.current = false;
+          return;
+        }
+        persistUserStorage(progress, notes);
       }, [progress, notes, isDataLoaded, currentUser.username]);
 
-      const clearData = () => {
-        setQuestions([]);
-        setSimQuestions([]);
-        setProgress({});
-        setNotes({});
+      const clearData = async () => {
+        try {
+          await persistGlobalDb([], []);
+          setQuestions([]);
+          setSimQuestions([]);
+          setProgress({});
+          setNotes({});
+        } catch (err) {
+          alert(err.message);
+        }
       };
 
-      const clearProgress = () => {
+      const clearProgress = async () => {
         setProgress({});
         setNotes({});
+        await persistUserStorage({}, {});
       };
 
       if (!isDataLoaded) {
@@ -445,7 +507,17 @@
             {activeTab === 'cara' && <CaraDaProvaView questions={questions} />}
             {activeTab === 'uepa' && <ExamsView questions={questions} progress={progress} setProgress={setProgress} notes={notes} setNotes={setNotes} titlePrefix="UEPA" isUepaView={true} />}
             {activeTab === 'exams' && <ExamsView questions={simQuestions} progress={progress} setProgress={setProgress} notes={notes} setNotes={setNotes} titlePrefix="Simulado" isUepaView={false} />}
-            {activeTab === 'upload' && <UploadView questions={questions} setQuestions={setQuestions} simQuestions={simQuestions} setSimQuestions={setSimQuestions} clearData={clearData} clearProgress={clearProgress} />}
+            {activeTab === 'upload' && (
+              <UploadView
+                questions={questions}
+                setQuestions={setQuestions}
+                simQuestions={simQuestions}
+                setSimQuestions={setSimQuestions}
+                persistGlobalDb={persistGlobalDb}
+                clearData={clearData}
+                clearProgress={clearProgress}
+              />
+            )}
           </main>
         </div>
       );
@@ -1055,12 +1127,14 @@
       );
     }
 
-    function UploadView({ questions, setQuestions, simQuestions, setSimQuestions, clearData, clearProgress }) {
+    function UploadView({ questions, setQuestions, simQuestions, setSimQuestions, persistGlobalDb, clearData, clearProgress }) {
       const [bulkText, setBulkText] = useState('');
       const [examYear, setExamYear] = useState('2026');
       const [simName, setSimName] = useState('Simulado Integrado');
       const [simNumber, setSimNumber] = useState('1');
       const [errorMsg, setErrorMsg] = useState('');
+      const [successMsg, setSuccessMsg] = useState('');
+      const [saving, setSaving] = useState(false);
 
       const [deleteYear, setDeleteYear] = useState('2026');
       const [deleteArea, setDeleteArea] = useState('Todas');
@@ -1142,44 +1216,69 @@
         });
       };
 
-      const handleImportUepa = () => {
+      const handleImportUepa = async () => {
         setErrorMsg('');
+        setSuccessMsg('');
         if (!bulkText.trim()) return;
+        setSaving(true);
         try {
           const label = examYear.toString();
           const parsed = parseQuestions(bulkText, 'UEPA', examYear, false, label);
-          setQuestions([...questions, ...parsed]);
+          const nextQuestions = [...questions, ...parsed];
+          await persistGlobalDb(nextQuestions, simQuestions);
+          setQuestions(nextQuestions);
           setBulkText('');
-          setErrorMsg('');
+          setSuccessMsg(`${parsed.length} questão(ões) salva(s) no banco global (UEPA).`);
         } catch (err) {
           setErrorMsg(err.message);
+        } finally {
+          setSaving(false);
         }
       };
 
-      const handleImportSimulado = () => {
+      const handleImportSimulado = async () => {
         setErrorMsg('');
+        setSuccessMsg('');
         if (!bulkText.trim()) return;
+        setSaving(true);
         try {
           const groupLabel = `${simName} #${simNumber}`;
           const parsed = parseQuestions(bulkText, simName, new Date().getFullYear(), true, groupLabel);
-          setSimQuestions([...simQuestions, ...parsed]);
+          const nextSimQuestions = [...simQuestions, ...parsed];
+          await persistGlobalDb(questions, nextSimQuestions);
+          setSimQuestions(nextSimQuestions);
           setBulkText('');
-          setErrorMsg('');
+          setSuccessMsg(`${parsed.length} questão(ões) salva(s) no banco global (Simulados).`);
         } catch (err) {
           setErrorMsg(err.message);
+        } finally {
+          setSaving(false);
         }
       };
 
-      const handleFilteredDelete = () => {
-        const targetYear = deleteYear.trim();
-        const filterFn = (q) => {
-          const matchYear = !targetYear || q.year.toString() === targetYear || q.groupLabel?.includes(targetYear);
-          const matchArea = deleteArea === 'Todas' || q.area === deleteArea;
-          return !(matchYear && matchArea);
-        };
+      const handleFilteredDelete = async () => {
+        setErrorMsg('');
+        setSuccessMsg('');
+        setSaving(true);
+        try {
+          const targetYear = deleteYear.trim();
+          const filterFn = (q) => {
+            const matchYear = !targetYear || q.year.toString() === targetYear || q.groupLabel?.includes(targetYear);
+            const matchArea = deleteArea === 'Todas' || q.area === deleteArea;
+            return !(matchYear && matchArea);
+          };
 
-        setQuestions(questions.filter(filterFn));
-        setSimQuestions(simQuestions.filter(filterFn));
+          const nextQuestions = questions.filter(filterFn);
+          const nextSimQuestions = simQuestions.filter(filterFn);
+          await persistGlobalDb(nextQuestions, nextSimQuestions);
+          setQuestions(nextQuestions);
+          setSimQuestions(nextSimQuestions);
+          setSuccessMsg('Filtro aplicado e banco global atualizado.');
+        } catch (err) {
+          setErrorMsg(err.message);
+        } finally {
+          setSaving(false);
+        }
       };
 
       return (
@@ -1215,6 +1314,12 @@
               </div>
             )}
 
+            {successMsg && (
+              <div className="mb-6 p-3 bg-emerald-950/60 border border-emerald-900 text-emerald-300 text-sm rounded-xl flex items-center">
+                <Check className="w-4 h-4 mr-2 shrink-0" /> {successMsg}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-800">
               <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 flex flex-col justify-between">
                 <div>
@@ -1231,8 +1336,8 @@
                     />
                   </div>
                 </div>
-                <button onClick={handleImportUepa} className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-500 text-sm">
-                  Importar para Banco Base UEPA
+                <button disabled={saving} onClick={handleImportUepa} className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-500 text-sm disabled:opacity-50">
+                  {saving ? 'Salvando...' : 'Importar para Banco Base UEPA'}
                 </button>
               </div>
 
@@ -1262,8 +1367,8 @@
                     </div>
                   </div>
                 </div>
-                <button onClick={handleImportSimulado} className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl hover:bg-indigo-500 text-sm">
-                  Importar para Banco Base Simulados
+                <button disabled={saving} onClick={handleImportSimulado} className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl hover:bg-indigo-500 text-sm disabled:opacity-50">
+                  {saving ? 'Salvando...' : 'Importar para Banco Base Simulados'}
                 </button>
               </div>
             </div>
@@ -1299,8 +1404,9 @@
 
             <div className="mb-6">
               <button 
+                disabled={saving}
                 onClick={handleFilteredDelete} 
-                className="w-full bg-rose-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-rose-500 transition-colors shadow-lg shadow-rose-900/30 text-sm"
+                className="w-full bg-rose-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-rose-500 transition-colors shadow-lg shadow-rose-900/30 text-sm disabled:opacity-50"
               >
                 Apagar Questões do Banco Base Correspondentes aos Filtros
               </button>
