@@ -140,6 +140,63 @@
           }) : null
         ]);
       };
+      var PositiveBoxIcon = function (props) {
+        var cls = (props && props.className) || 'w-6 h-6';
+        return e('svg', {
+          xmlns: 'http://www.w3.org/2000/svg',
+          viewBox: '0 0 28 28',
+          fill: 'none',
+          className: cls
+        }, [
+          e('rect', {
+            key: 1,
+            x: '3',
+            y: '5',
+            width: '20',
+            height: '20',
+            rx: '4',
+            fill: '#064e3b',
+            stroke: '#10b981',
+            strokeWidth: '2'
+          }),
+          e('path', {
+            key: 2,
+            d: 'M8 15.2L11.5 18.7L18.5 11.2',
+            stroke: '#34d399',
+            strokeWidth: '2.8',
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round'
+          })
+        ]);
+      };
+      var NegativeBoxIcon = function (props) {
+        var cls = (props && props.className) || 'w-6 h-6';
+        return e('svg', {
+          xmlns: 'http://www.w3.org/2000/svg',
+          viewBox: '0 0 28 28',
+          fill: 'none',
+          className: cls
+        }, [
+          e('rect', {
+            key: 1,
+            x: '3',
+            y: '5',
+            width: '20',
+            height: '20',
+            rx: '4',
+            fill: '#450a0a',
+            stroke: '#ef4444',
+            strokeWidth: '2'
+          }),
+          e('path', {
+            key: 2,
+            d: 'M9.5 11.5L16.5 18.5M16.5 11.5L9.5 18.5',
+            stroke: '#f87171',
+            strokeWidth: '2.8',
+            strokeLinecap: 'round'
+          })
+        ]);
+      };
       var BookOpenTextIcon = function (props) {
         return IconSvg(props, [
           e('path', { key: 1, d: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z' }),
@@ -257,6 +314,12 @@
       var Cloud = function (props) {
         return IconSvg(props, [e('path', { key: 1, d: 'M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z' })]);
       };
+      var CheckCircle = function (props) {
+        return IconSvg(props, [
+          e('path', { key: 1, d: 'M22 11.08V12a10 10 0 1 1-5.93-9.14' }),
+          e('polyline', { key: 2, points: '22 4 12 14.01 9 11.01' })
+        ]);
+      };
 
       var AREAS = [
         'Medicina da Família e Comunidade',
@@ -290,6 +353,15 @@
 
       function addDays(baseDate, days) {
         return new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + days);
+      }
+
+      // Próximo dia útil (pula sábado e domingo)
+      function getNextBusinessDay(dateInput) {
+        var d = addDays(startOfDay(dateInput), 1);
+        while (d.getDay() === 0 || d.getDay() === 6) {
+          d = addDays(d, 1);
+        }
+        return d;
       }
 
       function formatShortDate(dateObj) {
@@ -544,7 +616,9 @@
         var sSimQ = useState([]); var simQuestions = sSimQ[0]; var setSimQuestions = sSimQ[1];
         var sProg = useState({}); var progress = sProg[0]; var setProgress = sProg[1];
         var sErrD = useState({}); var errorDates = sErrD[0]; var setErrorDates = sErrD[1];
-        var sChkR = useState({}); var checkedReviews = sChkR[0]; var setCheckedReviews = sChkR[1];
+        // Estrutura de estados de revisão por questão:
+        // { [qId]: { stage: 'day1' | 'weekly' | 'completed', scheduledDate: ISO, firstDayCheckedAt?: ISO, weekNumber?: number, completedAt?: ISO, lastFailedAt?: ISO } }
+        var sRevStates = useState({}); var reviewStates = sRevStates[0]; var setReviewStates = sRevStates[1];
         var sNotes = useState({}); var notes = sNotes[0]; var setNotes = sNotes[1];
 
         function persistGlobalDb(nextQuestions, nextSimQuestions) {
@@ -568,7 +642,7 @@
             });
         }
 
-        function persistUserStorage(nextProgress, nextNotes, nextErrorDates, nextCheckedReviews) {
+        function persistUserStorage(nextProgress, nextNotes, nextErrorDates, nextReviewStates) {
           if (!supabaseClient) return Promise.resolve();
           setSyncStatus('Salvando Progresso...');
           return supabaseClient
@@ -579,7 +653,7 @@
                 progress: nextProgress,
                 notes: nextNotes,
                 errorDates: nextErrorDates,
-                checkedReviews: nextCheckedReviews
+                reviewStates: nextReviewStates
               },
               updated_at: new Date().toISOString()
             }], { onConflict: 'key' })
@@ -628,7 +702,7 @@
                 setProgress(uv.progress && typeof uv.progress === 'object' ? uv.progress : {});
                 setNotes(uv.notes && typeof uv.notes === 'object' ? uv.notes : {});
                 setErrorDates(uv.errorDates && typeof uv.errorDates === 'object' ? uv.errorDates : {});
-                setCheckedReviews(uv.checkedReviews && typeof uv.checkedReviews === 'object' ? uv.checkedReviews : {});
+                setReviewStates(uv.reviewStates && typeof uv.reviewStates === 'object' ? uv.reviewStates : {});
               }
               canAutoSaveUser.current = true;
             }
@@ -660,8 +734,8 @@
             isFirstUserRender.current = false;
             return;
           }
-          persistUserStorage(progress, notes, errorDates, checkedReviews);
-        }, [progress, notes, errorDates, checkedReviews, isDataLoaded, currentUser.username]);
+          persistUserStorage(progress, notes, errorDates, reviewStates);
+        }, [progress, notes, errorDates, reviewStates, isDataLoaded, currentUser.username]);
 
         var allQuestionsMap = useMemo(function () {
           var map = {};
@@ -671,8 +745,39 @@
           return map;
         }, [questions, simQuestions]);
 
+        // Transição automática no próximo dia útil: se a 1ª revisão (+1d) foi marcada,
+        // no próximo dia útil ela deixa de existir e cria a revisão semanal (+7d da primeira).
+        useEffect(function () {
+          if (!isDataLoaded) return;
+          var today = startOfDay(new Date());
+          setReviewStates(function (prev) {
+            var changed = false;
+            var next = Object.assign({}, prev);
+            Object.keys(next).forEach(function (qId) {
+              var st = next[qId];
+              if (st && st.stage === 'day1' && st.firstDayCheckedAt) {
+                var nextBizDay = getNextBusinessDay(st.firstDayCheckedAt);
+                if (today.getTime() >= nextBizDay.getTime()) {
+                  var baseFirstReview = startOfDay(st.scheduledDate || st.firstDayCheckedAt);
+                  var weeklyDate = addDays(baseFirstReview, 7);
+                  next[qId] = {
+                    stage: 'weekly',
+                    scheduledDate: weeklyDate.toISOString(),
+                    weekNumber: 1,
+                    promotedFromDay1At: new Date().toISOString()
+                  };
+                  changed = true;
+                }
+              }
+            });
+            return changed ? next : prev;
+          });
+        }, [isDataLoaded]);
+
         function handleSetProgress(nextProgress) {
-          var todayIso = new Date().toISOString();
+          var nowIso = new Date().toISOString();
+          var tomorrowIso = addDays(startOfDay(new Date()), 1).toISOString();
+
           setErrorDates(function (prev) {
             var updated = Object.assign({}, prev);
             Object.keys(nextProgress).forEach(function (qId) {
@@ -682,20 +787,96 @@
               var correctOpt = q.options.find(function (o) { return o.isCorrect; });
               var isCorrect = correctOpt && optId === correctOpt.id;
               if (!isCorrect && !updated[qId]) {
-                updated[qId] = todayIso;
+                updated[qId] = nowIso;
               } else if (isCorrect) {
                 delete updated[qId];
               }
             });
             return updated;
           });
+
+          setReviewStates(function (prev) {
+            var updated = Object.assign({}, prev);
+            Object.keys(nextProgress).forEach(function (qId) {
+              var optId = nextProgress[qId];
+              var q = allQuestionsMap[qId];
+              if (!q || q.isAnnulled) return;
+              var correctOpt = q.options.find(function (o) { return o.isCorrect; });
+              var isCorrect = correctOpt && optId === correctOpt.id;
+              if (!isCorrect && !updated[qId]) {
+                updated[qId] = {
+                  stage: 'day1',
+                  scheduledDate: tomorrowIso,
+                  firstDayCheckedAt: null,
+                  weekNumber: 0
+                };
+              } else if (isCorrect && updated[qId]) {
+                delete updated[qId];
+              }
+            });
+            return updated;
+          });
+
           setProgress(nextProgress);
         }
 
-        function handleToggleReviewDone(reviewKey) {
-          setCheckedReviews(function (prev) {
+        // Marca/desmarca a caixinha da 1ª revisão (+1d)
+        function handleToggleDay1Check(qId) {
+          var today = startOfDay(new Date());
+          var tomorrowIso = addDays(today, 1).toISOString();
+          setReviewStates(function (prev) {
             var next = Object.assign({}, prev);
-            next[reviewKey] = !next[reviewKey];
+            var current = next[qId] || { stage: 'day1', scheduledDate: tomorrowIso, firstDayCheckedAt: null, weekNumber: 0 };
+            if (current.firstDayCheckedAt) {
+              next[qId] = Object.assign({}, current, { firstDayCheckedAt: null });
+            } else {
+              next[qId] = Object.assign({}, current, {
+                stage: 'day1',
+                scheduledDate: current.scheduledDate || tomorrowIso,
+                firstDayCheckedAt: new Date().toISOString()
+              });
+            }
+            return next;
+          });
+        }
+
+        // Na revisão semanal (+7d):
+        // action === 'positive' (>= 70% de acerto) -> conclui e vai para a aba Temas Revisados
+        // action === 'negative' (< 70% de acerto) -> cria outra revisão com +1 semana (+7d)
+        function handleWeeklyReviewDecision(qId, action) {
+          var today = startOfDay(new Date());
+          setReviewStates(function (prev) {
+            var next = Object.assign({}, prev);
+            var current = next[qId] || { stage: 'weekly', weekNumber: 1 };
+            if (action === 'positive') {
+              next[qId] = {
+                stage: 'completed',
+                completedAt: new Date().toISOString(),
+                weekNumber: current.weekNumber || 1
+              };
+            } else if (action === 'negative') {
+              var nextWeekDate = addDays(today, 7).toISOString();
+              next[qId] = {
+                stage: 'weekly',
+                scheduledDate: nextWeekDate,
+                weekNumber: (current.weekNumber || 1) + 1,
+                lastFailedAt: new Date().toISOString()
+              };
+            }
+            return next;
+          });
+        }
+
+        // Permite reabrir um tema da aba Temas Revisados caso o candidato queira revisar novamente
+        function handleReopenCompletedTopic(qId) {
+          var nextWeekDate = addDays(startOfDay(new Date()), 7).toISOString();
+          setReviewStates(function (prev) {
+            var next = Object.assign({}, prev);
+            next[qId] = {
+              stage: 'weekly',
+              scheduledDate: nextWeekDate,
+              weekNumber: 1
+            };
             return next;
           });
         }
@@ -707,7 +888,7 @@
             setProgress({});
             setNotes({});
             setErrorDates({});
-            setCheckedReviews({});
+            setReviewStates({});
           }).catch(function (err) {
             alert(err.message);
           });
@@ -717,7 +898,7 @@
           setProgress({});
           setNotes({});
           setErrorDates({});
-          setCheckedReviews({});
+          setReviewStates({});
           persistUserStorage({}, {}, {}, {});
         }
 
@@ -741,6 +922,7 @@
                 ),
                 e('div', { className: 'flex space-x-1 sm:space-x-2 items-center overflow-x-auto no-scrollbar flex-1 py-1' },
                   e(TabButton, { active: activeTab === 'dashboard', onClick: function () { setActiveTab('dashboard'); }, icon: e(Target), label: 'Dashboard' }),
+                  e(TabButton, { active: activeTab === 'revisados', onClick: function () { setActiveTab('revisados'); }, icon: e(CheckCircle), label: 'Temas Revisados' }),
                   e(TabButton, { active: activeTab === 'cara', onClick: function () { setActiveTab('cara'); }, icon: e(BarChart3), label: 'A Cara da Prova' }),
                   e(TabButton, { active: activeTab === 'uepa', onClick: function () { setActiveTab('uepa'); }, icon: e(Archive), label: 'UEPA PROVAS' }),
                   e(TabButton, { active: activeTab === 'exams', onClick: function () { setActiveTab('exams'); }, icon: e(BookOpen), label: 'Simulados' }),
@@ -769,8 +951,16 @@
               simQuestions: simQuestions,
               progress: progress,
               errorDates: errorDates,
-              checkedReviews: checkedReviews,
-              onToggleReviewDone: handleToggleReviewDone
+              reviewStates: reviewStates,
+              onToggleDay1Check: handleToggleDay1Check,
+              onWeeklyDecision: handleWeeklyReviewDecision
+            }) : null,
+            activeTab === 'revisados' ? e(ReviewedTopicsView, {
+              uepaQuestions: questions,
+              simQuestions: simQuestions,
+              progress: progress,
+              reviewStates: reviewStates,
+              onReopenTopic: handleReopenCompletedTopic
             }) : null,
             activeTab === 'cara' ? e(CaraDaProvaView, { questions: questions }) : null,
             activeTab === 'uepa' ? e(ExamsView, {
@@ -820,8 +1010,9 @@
         var simQuestions = props.simQuestions;
         var progress = props.progress;
         var errorDates = props.errorDates;
-        var checkedReviews = props.checkedReviews;
-        var onToggleReviewDone = props.onToggleReviewDone;
+        var reviewStates = props.reviewStates;
+        var onToggleDay1Check = props.onToggleDay1Check;
+        var onWeeklyDecision = props.onWeeklyDecision;
 
         var sType = useState('provas'); var dashboardType = sType[0]; var setDashboardType = sType[1];
         var sPage = useState(0); var reviewPage = sPage[0]; var setReviewPage = sPage[1];
@@ -883,18 +1074,43 @@
         var reviewCards = useMemo(function () {
           if (stats.wrongItems.length === 0) return [];
           var today = startOfDay(new Date());
-          var offsets = [1, 3, 7, 15];
           var cards = [];
 
-          stats.wrongItems.forEach(function (item, idx) {
-            var daysSinceError = Math.max(0, Math.round((today - item.errDate) / (1000 * 60 * 60 * 24)));
-            var activeOffset = offsets.find(function (d) { return d >= daysSinceError; }) || offsets[offsets.length - 1];
-            var scheduledDate = addDays(item.errDate, activeOffset);
-            var cardKey = dashboardType + '_' + item.questionId + '_' + idx;
+          stats.wrongItems.forEach(function (item) {
+            var state = (reviewStates && reviewStates[item.questionId]) || {
+              stage: 'day1',
+              scheduledDate: addDays(item.errDate, 1).toISOString(),
+              firstDayCheckedAt: null,
+              weekNumber: 0
+            };
+
+            // Se já foi concluída (>= 70% de acerto), sai da fila e vai para Temas Revisados
+            if (state.stage === 'completed') return;
+
+            var effectiveStage = state.stage || 'day1';
+            var scheduledDate = startOfDay(state.scheduledDate || addDays(item.errDate, 1));
+            var isDay1Checked = !!(effectiveStage === 'day1' && state.firstDayCheckedAt);
+
+            // Se a 1ª revisão (+1d) foi marcada e já chegou o próximo dia útil, exibe a caixinha semanal (+7d da primeira)
+            if (isDay1Checked) {
+              var nextBizDay = getNextBusinessDay(state.firstDayCheckedAt);
+              if (today.getTime() >= nextBizDay.getTime()) {
+                effectiveStage = 'weekly';
+                scheduledDate = addDays(scheduledDate, 7);
+              }
+            }
+
+            var dateLabel = effectiveStage === 'day1'
+              ? (formatShortDate(scheduledDate) + ' (+1d)')
+              : (formatShortDate(scheduledDate) + ' (+7d)');
 
             cards.push({
-              key: cardKey,
-              dateLabel: formatShortDate(scheduledDate) + ' (+' + activeOffset + 'd)',
+              key: dashboardType + '_' + item.questionId,
+              questionId: item.questionId,
+              stage: effectiveStage,
+              isDay1Checked: isDay1Checked,
+              weekNumber: state.weekNumber || 1,
+              dateLabel: dateLabel,
               area: item.area,
               subtheme: item.subtheme,
               summary: item.summary,
@@ -908,7 +1124,7 @@
           });
 
           return cards.sort(function (a, b) { return a.scheduledDate - b.scheduledDate; });
-        }, [stats.wrongItems, dashboardType]);
+        }, [stats.wrongItems, reviewStates, dashboardType]);
 
         var itemsPerPage = 12;
         var totalPages = Math.max(1, Math.ceil(reviewCards.length / itemsPerPage));
@@ -1022,11 +1238,11 @@
 
             paginatedCards.length > 0 ? e('div', { className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4' },
               paginatedCards.map(function (card) {
-                var isDone = !!(checkedReviews && checkedReviews[card.key]);
+                var isDoneDay1 = card.stage === 'day1' && card.isDay1Checked;
                 return e('div', {
                   key: card.key,
-                  className: 'p-4 rounded-xl border transition-all flex flex-col justify-between min-h-[152px] ' +
-                    (isDone
+                  className: 'p-4 rounded-xl border transition-all flex flex-col justify-between min-h-[160px] ' +
+                    (isDoneDay1
                       ? 'bg-emerald-950/70 border-emerald-500 text-emerald-100 shadow-lg shadow-emerald-950/50'
                       : 'bg-slate-950 border-slate-800 text-slate-200')
                 },
@@ -1034,23 +1250,27 @@
                     e('div', { className: 'flex items-center justify-between gap-2 mb-2' },
                       e('span', {
                         className: 'text-xs font-bold px-2.5 py-1 rounded-lg ' +
-                          (isDone ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-900 text-cyan-300 border border-slate-800')
+                          (isDoneDay1
+                            ? 'bg-emerald-500/20 text-emerald-300'
+                            : card.stage === 'weekly'
+                              ? 'bg-indigo-950/80 text-indigo-300 border border-indigo-700/60'
+                              : 'bg-slate-900 text-cyan-300 border border-slate-800')
                       }, card.dateLabel),
                       e('span', {
                         className: 'text-[11px] font-bold px-2 py-0.5 rounded-md text-white truncate max-w-[140px]',
-                        style: { backgroundColor: isDone ? '#059669' : getAreaColor(card.area) }
+                        style: { backgroundColor: isDoneDay1 ? '#059669' : getAreaColor(card.area) }
                       }, card.area)
                     ),
                     e('p', {
-                      className: 'text-xs sm:text-sm font-medium leading-relaxed ' + (isDone ? 'text-emerald-100' : 'text-slate-200')
+                      className: 'text-xs sm:text-sm font-medium leading-relaxed ' + (isDoneDay1 ? 'text-emerald-100' : 'text-slate-200')
                     }, card.summary)
                   ),
-                  e('div', { className: 'flex items-center justify-between mt-3 pt-2' },
+                  e('div', { className: 'flex items-center justify-between mt-3 pt-2 gap-2' },
                     e('button', {
                       type: 'button',
                       onClick: function () { setSelectedReviewDetail(card); },
                       className: 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ' +
-                        (isDone
+                        (isDoneDay1
                           ? 'bg-emerald-900/70 hover:bg-emerald-800 text-emerald-200 border border-emerald-500/40'
                           : 'bg-slate-900 hover:bg-slate-800 text-blue-300 border border-slate-700'),
                       title: 'Ver revisão completa e questão errada'
@@ -1058,14 +1278,32 @@
                       e(BookOpenTextIcon, { className: 'w-3.5 h-3.5 shrink-0' }),
                       e('span', null, 'Leia mais')
                     ),
-                    e('button', {
-                      type: 'button',
-                      onClick: function () { onToggleReviewDone(card.key); },
-                      className: 'p-1 rounded-lg transition-all ' +
-                        (isDone ? 'bg-emerald-500/30 ring-1 ring-emerald-400' : 'hover:bg-slate-800/80 opacity-90 hover:opacity-100'),
-                      title: 'Marcar como feita',
-                      'aria-label': 'Marcar como feita'
-                    }, e(ReviewCheckIcon, { checked: isDone, className: 'w-6 h-6' }))
+
+                    card.stage === 'day1'
+                      ? e('button', {
+                          type: 'button',
+                          onClick: function () { onToggleDay1Check(card.questionId); },
+                          className: 'p-1 rounded-lg transition-all ' +
+                            (isDoneDay1 ? 'bg-emerald-500/30 ring-1 ring-emerald-400' : 'hover:bg-slate-800/80 opacity-90 hover:opacity-100'),
+                          title: isDoneDay1 ? 'Marcada (avança no próximo dia útil)' : 'Marcar 1ª revisão (+1d)',
+                          'aria-label': 'Marcar 1ª revisão'
+                        }, e(ReviewCheckIcon, { checked: isDoneDay1, className: 'w-6 h-6' }))
+                      : e('div', { className: 'flex items-center gap-1.5' },
+                          e('button', {
+                            type: 'button',
+                            onClick: function () { onWeeklyDecision(card.questionId, 'positive'); },
+                            className: 'p-1 rounded-lg hover:bg-emerald-950/80 transition-all',
+                            title: 'Positivar (≥ 70% de acerto — concluir tema)',
+                            'aria-label': 'Positivar revisão semanal'
+                          }, e(PositiveBoxIcon, { className: 'w-6 h-6' })),
+                          e('button', {
+                            type: 'button',
+                            onClick: function () { onWeeklyDecision(card.questionId, 'negative'); },
+                            className: 'p-1 rounded-lg hover:bg-red-950/80 transition-all',
+                            title: 'Negativar (< 70% de acerto — reagendar +1 semana)',
+                            'aria-label': 'Negativar revisão semanal'
+                          }, e(NegativeBoxIcon, { className: 'w-6 h-6' }))
+                        )
                   )
                 );
               })
@@ -1125,6 +1363,165 @@
                       e('span', { className: 'flex-1' }, opt.text),
                       isCorrect ? e('span', { className: 'text-[11px] font-bold text-emerald-400 shrink-0' }, 'Correta') : null,
                       isPickedWrong ? e('span', { className: 'text-[11px] font-bold text-red-400 shrink-0' }, 'Sua escolha') : null
+                    );
+                  })
+                )
+              )
+            )
+          ) : null
+        );
+      }
+
+      function ReviewedTopicsView(props) {
+        var uepaQuestions = props.uepaQuestions;
+        var simQuestions = props.simQuestions;
+        var progress = props.progress;
+        var reviewStates = props.reviewStates;
+        var onReopenTopic = props.onReopenTopic;
+
+        var sArea = useState('Todas'); var selectedArea = sArea[0]; var setSelectedArea = sArea[1];
+        var sDetail = useState(null); var selectedDetail = sDetail[0]; var setSelectedDetail = sDetail[1];
+
+        var completedItems = useMemo(function () {
+          var all = uepaQuestions.concat(simQuestions);
+          var list = [];
+          all.forEach(function (q) {
+            var st = reviewStates && reviewStates[q.id];
+            if (!st || st.stage !== 'completed') return;
+            if (selectedArea !== 'Todas' && q.area !== selectedArea) return;
+            var correctOpt = q.options.find(function (o) { return o.isCorrect; });
+            list.push({
+              questionId: q.id,
+              area: q.area || 'Geral',
+              subtheme: q.subtheme || 'Geral',
+              summary: buildSummaryWithoutReviewWord(q, correctOpt),
+              fullReview: buildFullReviewText(q, correctOpt),
+              questionText: q.text || '',
+              options: Array.isArray(q.options) ? q.options : [],
+              selectedOptionId: progress[q.id] || null,
+              correctOptionId: (correctOpt && correctOpt.id) || null,
+              completedDateLabel: st.completedAt ? formatShortDate(new Date(st.completedAt)) : 'Concluído'
+            });
+          });
+          return list;
+        }, [uepaQuestions, simQuestions, progress, reviewStates, selectedArea]);
+
+        return e('div', { className: 'space-y-4 sm:space-y-6' },
+          e('div', { className: 'bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-xl' },
+            e('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6' },
+              e('div', null,
+                e('h2', { className: 'text-xl sm:text-2xl font-bold text-white flex items-center gap-2' },
+                  e(CheckCircle, { className: 'w-6 h-6 text-emerald-400 shrink-0' }),
+                  'Temas Revisados'
+                ),
+                e('p', { className: 'text-slate-400 text-xs sm:text-sm mt-1' },
+                  'Temas concluídos com aproveitamento ≥ 70% na revisão semanal.'
+                )
+              ),
+              e('div', { className: 'flex items-center space-x-2' },
+                e('span', { className: 'text-xs text-slate-400 font-medium shrink-0' }, 'Área:'),
+                e('select', {
+                  value: selectedArea,
+                  onChange: function (ev) { setSelectedArea(ev.target.value); },
+                  className: 'px-3 sm:px-4 py-2 border border-slate-700 rounded-xl text-xs sm:text-sm bg-slate-800 text-slate-200 outline-none'
+                },
+                  [e('option', { key: 'Todas', value: 'Todas' }, 'Todas as Grandes Áreas')].concat(
+                    AREAS.map(function (a) { return e('option', { key: a, value: a }, a); })
+                  )
+                )
+              )
+            ),
+
+            completedItems.length > 0
+              ? e('div', { className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4' },
+                  completedItems.map(function (item) {
+                    return e('div', {
+                      key: item.questionId,
+                      className: 'p-4 rounded-xl border bg-emerald-950/40 border-emerald-600/50 text-slate-100 flex flex-col justify-between min-h-[160px]'
+                    },
+                      e('div', null,
+                        e('div', { className: 'flex items-center justify-between gap-2 mb-2' },
+                          e('span', { className: 'text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300' },
+                            'Concluído · ' + item.completedDateLabel
+                          ),
+                          e('span', {
+                            className: 'text-[11px] font-bold px-2 py-0.5 rounded-md text-white truncate max-w-[135px]',
+                            style: { backgroundColor: getAreaColor(item.area) }
+                          }, item.area)
+                        ),
+                        e('p', { className: 'text-xs sm:text-sm font-medium leading-relaxed text-emerald-100' }, item.summary)
+                      ),
+                      e('div', { className: 'flex items-center justify-between mt-3 pt-2 gap-2' },
+                        e('button', {
+                          type: 'button',
+                          onClick: function () { setSelectedDetail(item); },
+                          className: 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-blue-300 border border-slate-700'
+                        },
+                          e(BookOpenTextIcon, { className: 'w-3.5 h-3.5 shrink-0' }),
+                          e('span', null, 'Leia mais')
+                        ),
+                        e('button', {
+                          type: 'button',
+                          onClick: function () { onReopenTopic(item.questionId); },
+                          className: 'px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700',
+                          title: 'Devolver para Revisão Espaçada (+7d)'
+                        }, 'Reabrir')
+                      )
+                    );
+                  })
+                )
+              : e('div', { className: 'bg-slate-950 border border-slate-800 rounded-xl p-8 text-center text-xs sm:text-sm text-slate-400' },
+                  'Nenhum tema concluído ainda. Ao positivar uma revisão semanal (≥ 70% de acerto), o tema aparecerá aqui.'
+                )
+          ),
+
+          selectedDetail ? e('div', {
+            className: 'fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6',
+            onClick: function () { setSelectedDetail(null); }
+          },
+            e('div', {
+              className: 'bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[88vh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-5',
+              onClick: function (ev) { ev.stopPropagation(); }
+            },
+              e('div', { className: 'flex items-start justify-between gap-3 border-b border-slate-800 pb-3.5' },
+                e('div', { className: 'flex flex-wrap items-center gap-2' },
+                  e('span', { className: 'text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300' },
+                    'Tema Concluído'
+                  ),
+                  e('span', {
+                    className: 'text-xs font-bold px-2.5 py-1 rounded-lg text-white',
+                    style: { backgroundColor: getAreaColor(selectedDetail.area) }
+                  }, selectedDetail.area),
+                  e('span', { className: 'text-xs text-slate-400 font-medium' }, selectedDetail.subtheme)
+                ),
+                e('button', {
+                  type: 'button',
+                  onClick: function () { setSelectedDetail(null); },
+                  className: 'p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0'
+                }, e(XIcon, { className: 'w-4 h-4' }))
+              ),
+              e('div', { className: 'bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1.5' },
+                e('h5', { className: 'text-xs font-bold uppercase tracking-wider text-emerald-400' }, 'Texto Completo da Revisão'),
+                e('p', { className: 'text-sm text-slate-100 leading-relaxed' }, selectedDetail.fullReview)
+              ),
+              e('div', { className: 'bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4' },
+                e('div', null,
+                  e('h5', { className: 'text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5' }, 'Questão Revisada'),
+                  e('p', { className: 'text-sm text-slate-100 leading-relaxed whitespace-pre-line' }, selectedDetail.questionText)
+                ),
+                e('div', { className: 'space-y-2 pt-2 border-t border-slate-800/80' },
+                  selectedDetail.options.map(function (opt) {
+                    var isCorrect = opt.id === selectedDetail.correctOptionId;
+                    var optStyle = isCorrect
+                      ? 'bg-emerald-950/50 border-emerald-500/70 text-emerald-200'
+                      : 'bg-slate-900/70 border-slate-800 text-slate-300';
+                    return e('div', {
+                      key: opt.id,
+                      className: 'p-3 rounded-xl border text-xs sm:text-sm flex items-start gap-2.5 ' + optStyle
+                    },
+                      e('span', { className: 'font-bold shrink-0' }, opt.id + ')'),
+                      e('span', { className: 'flex-1' }, opt.text),
+                      isCorrect ? e('span', { className: 'text-[11px] font-bold text-emerald-400 shrink-0' }, 'Correta') : null
                     );
                   })
                 )
@@ -1387,46 +1784,42 @@
           setNotes(next);
         }
 
-        function fallbackExplanation(correctOpt) {
-          setAiExplanation(
-            'De acordo com as diretrizes do Ministério da Saúde e protocolos vigentes para ' +
-            currentQ.area + ' (' + currentQ.subtheme + '), a alternativa correta é a letra "' +
-            (correctOpt ? correctOpt.id : 'N/A') + '".\n\n' +
-            'Esta conclusão decorre da análise rigorosa do quadro clínico apresentado no enunciado.'
-          );
-        }
-
         function getAIExplanation() {
+          if (!supabaseClient) {
+            setAiExplanation('Cliente Supabase não inicializado.');
+            return;
+          }
+
           setAiLoading(true);
           setAiExplanation('');
           var correctOpt = currentQ.options.find(function (o) { return o.isCorrect; });
+          var chosenOpt = currentQ.options.find(function (o) { return o.id === confirmedOptionId; });
 
-          var systemPrompt = 'Você é um médico especialista em educação médica e residência médica no Brasil. Forneça uma análise técnica fundamentada nas diretrizes do Ministério da Saúde e guidelines vigentes. Explique detalhadamente o enunciado, por que a alternativa correta é a gabaritada e por que as alternativas incorretas são distratores.';
-          var userQuery = 'Analise esta questão de prova:\n\nGrande Área: ' + currentQ.area +
-            '\nSubtema: ' + currentQ.subtheme +
-            '\nEnunciado: ' + currentQ.text +
-            '\n\nAlternativas:\n' + currentQ.options.map(function (o) { return o.id + ') ' + o.text; }).join('\n') +
-            '\n\nGabarito: ' + (correctOpt ? correctOpt.id : 'Anulada');
-
-          var apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=';
-          fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: userQuery }] }],
-              systemInstruction: { parts: [{ text: systemPrompt }] }
-            })
-          }).then(function (r) { return r.json(); })
-            .then(function (result) {
-              var candidate = result && result.candidates && result.candidates[0];
-              if (candidate && candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text) {
-                setAiExplanation(candidate.content.parts[0].text);
-              } else {
-                fallbackExplanation(correctOpt);
-              }
-            })
-            .catch(function () { fallbackExplanation(correctOpt); })
-            .finally(function () { setAiLoading(false); });
+          supabaseClient.functions.invoke('explicar-questao', {
+            body: {
+              area: currentQ.area,
+              subtheme: currentQ.subtheme,
+              text: currentQ.text,
+              options: currentQ.options.map(function (o) { return { id: o.id, text: o.text }; }),
+              correctOption: correctOpt ? correctOpt.id : 'Anulada',
+              chosenOption: chosenOpt ? chosenOpt.id : 'Não informada'
+            }
+          }).then(function (res) {
+            if (res.error) {
+              setAiExplanation('Erro ao consultar a explicação global: ' + res.error.message);
+              return;
+            }
+            var payload = res.data || {};
+            if (payload.error) {
+              setAiExplanation('Erro na função Gemini: ' + payload.error);
+              return;
+            }
+            setAiExplanation(payload.explanation || 'Nenhuma explicação retornada.');
+          }).catch(function (err) {
+            setAiExplanation('Erro de conexão com o serviço de IA: ' + (err && err.message ? err.message : 'Tente novamente.'));
+          }).finally(function () {
+            setAiLoading(false);
+          });
         }
 
         var confirmedOptObj = currentQ.options.find(function (o) { return o.id === confirmedOptionId; });
@@ -1558,7 +1951,7 @@
                         onClick: getAIExplanation,
                         disabled: aiLoading,
                         className: 'flex items-center justify-center bg-indigo-600 text-white px-4 py-2.5 min-h-[40px] rounded-xl font-medium hover:bg-indigo-500 text-xs sm:text-sm shadow-md disabled:opacity-70'
-                      }, e(Lightbulb, { className: 'w-4 h-4 mr-2' }), ' ', aiLoading ? 'Analisando...' : 'Explicar com IA'),
+                      }, e(Lightbulb, { className: 'w-4 h-4 mr-2' }), ' ', aiLoading ? 'Consultando Gemini...' : 'Explicar com IA'),
                       e('button', {
                         onClick: function () { jumpIndex(1); },
                         disabled: currentIndex === currentQuestions.length - 1,
@@ -1566,12 +1959,14 @@
                       }, 'Seguinte >')
                     )
                   ),
+
                   aiExplanation ? e('div', { className: 'bg-indigo-950/60 border border-indigo-900/60 p-4 sm:p-5 rounded-xl text-indigo-200 text-xs sm:text-sm leading-relaxed' },
                     e('div', { className: 'flex items-center font-bold mb-2' },
-                      e(Lightbulb, { className: 'w-5 h-5 mr-2 text-indigo-400' }), ' Explicação Especializada'
+                      e(Lightbulb, { className: 'w-5 h-5 mr-2 text-indigo-400' }), ' Explicação Especializada (Gemini)'
                     ),
                     e('p', { className: 'whitespace-pre-line' }, aiExplanation)
                   ) : null,
+
                   e('div', { className: 'bg-slate-950 border border-slate-800 rounded-xl p-4' },
                     e('h4', { className: 'text-xs sm:text-sm font-bold text-slate-300 mb-2 flex items-center' },
                       e(FileText, { className: 'w-4 h-4 mr-2' }), ' Minhas Anotações Pessoais'
