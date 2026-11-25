@@ -10,7 +10,7 @@
   
   <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   
   <!-- PropTypes & Recharts -->
   <script src="https://unpkg.com/prop-types@15.7.2/prop-types.min.js"></script>
@@ -205,12 +205,6 @@
           e('path', { key: 4, d: 'M6 12h2' }),
           e('path', { key: 5, d: 'M16 8h2' }),
           e('path', { key: 6, d: 'M16 12h2' })
-        ]);
-      };
-      var RotateCcwIcon = function (props) {
-        return IconSvg(props, [
-          e('path', { key: 1, d: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8' }),
-          e('path', { key: 2, d: 'M3 3v5h5' })
         ]);
       };
       var Lightbulb = function (props) {
@@ -622,6 +616,8 @@
         var sSimQ = useState([]); var simQuestions = sSimQ[0]; var setSimQuestions = sSimQ[1];
         var sProg = useState({}); var progress = sProg[0]; var setProgress = sProg[1];
         var sErrD = useState({}); var errorDates = sErrD[0]; var setErrorDates = sErrD[1];
+        // Estrutura de estados de revisão por questão:
+        // { [qId]: { stage: 'day1' | 'weekly' | 'completed', scheduledDate: ISO, firstDayCheckedAt?: ISO, weekNumber?: number, completedAt?: ISO, lastFailedAt?: ISO } }
         var sRevStates = useState({}); var reviewStates = sRevStates[0]; var setReviewStates = sRevStates[1];
         var sNotes = useState({}); var notes = sNotes[0]; var setNotes = sNotes[1];
 
@@ -749,6 +745,8 @@
           return map;
         }, [questions, simQuestions]);
 
+        // Transição automática no próximo dia útil: se a 1ª revisão (+1d) foi marcada,
+        // no próximo dia útil ela deixa de existir e cria a revisão semanal (+7d da primeira).
         useEffect(function () {
           if (!isDataLoaded) return;
           var today = startOfDay(new Date());
@@ -822,29 +820,7 @@
           setProgress(nextProgress);
         }
 
-        // Restaura apenas uma única questão para que possa ser respondida novamente
-        function handleResetSingleQuestion(qId) {
-          if (!qId) return;
-          setProgress(function (prev) {
-            if (!prev || !(qId in prev)) return prev;
-            var next = Object.assign({}, prev);
-            delete next[qId];
-            return next;
-          });
-          setErrorDates(function (prev) {
-            if (!prev || !(qId in prev)) return prev;
-            var next = Object.assign({}, prev);
-            delete next[qId];
-            return next;
-          });
-          setReviewStates(function (prev) {
-            if (!prev || !(qId in prev)) return prev;
-            var next = Object.assign({}, prev);
-            delete next[qId];
-            return next;
-          });
-        }
-
+        // Marca/desmarca a caixinha da 1ª revisão (+1d)
         function handleToggleDay1Check(qId) {
           var today = startOfDay(new Date());
           var tomorrowIso = addDays(today, 1).toISOString();
@@ -864,6 +840,9 @@
           });
         }
 
+        // Na revisão semanal (+7d):
+        // action === 'positive' (>= 70% de acerto) -> conclui e vai para a aba Temas Revisados
+        // action === 'negative' (< 70% de acerto) -> cria outra revisão com +1 semana (+7d)
         function handleWeeklyReviewDecision(qId, action) {
           var today = startOfDay(new Date());
           setReviewStates(function (prev) {
@@ -888,6 +867,7 @@
           });
         }
 
+        // Permite reabrir um tema da aba Temas Revisados caso o candidato queira revisar novamente
         function handleReopenCompletedTopic(qId) {
           var nextWeekDate = addDays(startOfDay(new Date()), 7).toISOString();
           setReviewStates(function (prev) {
@@ -987,7 +967,6 @@
               questions: questions,
               progress: progress,
               setProgress: handleSetProgress,
-              onResetQuestion: handleResetSingleQuestion,
               notes: notes,
               setNotes: setNotes,
               titlePrefix: 'UEPA',
@@ -997,7 +976,6 @@
               questions: simQuestions,
               progress: progress,
               setProgress: handleSetProgress,
-              onResetQuestion: handleResetSingleQuestion,
               notes: notes,
               setNotes: setNotes,
               titlePrefix: 'Simulado',
@@ -1037,34 +1015,13 @@
         var onWeeklyDecision = props.onWeeklyDecision;
 
         var sType = useState('provas'); var dashboardType = sType[0]; var setDashboardType = sType[1];
-        var sUepaYear = useState('Todos'); var selectedUepaYear = sUepaYear[0]; var setSelectedUepaYear = sUepaYear[1];
         var sPage = useState(0); var reviewPage = sPage[0]; var setReviewPage = sPage[1];
         var sDetail = useState(null); var selectedReviewDetail = sDetail[0]; var setSelectedReviewDetail = sDetail[1];
-
-        var uepaYearsList = useMemo(function () {
-          var seen = {};
-          var yrs = [];
-          uepaQuestions.forEach(function (q) {
-            var y = q.year ? String(q.year) : (q.groupLabel || '');
-            if (y && !seen[y]) {
-              seen[y] = true;
-              yrs.push(y);
-            }
-          });
-          return ['Todos'].concat(yrs.sort(function (a, b) { return b.localeCompare(a); }));
-        }, [uepaQuestions]);
-
-        var activeQuestions = useMemo(function () {
-          if (dashboardType !== 'provas') return simQuestions;
-          if (selectedUepaYear === 'Todos') return uepaQuestions;
-          return uepaQuestions.filter(function (q) {
-            return String(q.year) === selectedUepaYear || q.groupLabel === selectedUepaYear;
-          });
-        }, [dashboardType, uepaQuestions, simQuestions, selectedUepaYear]);
+        var activeQuestions = dashboardType === 'provas' ? uepaQuestions : simQuestions;
 
         useEffect(function () {
           setReviewPage(0);
-        }, [dashboardType, selectedUepaYear]);
+        }, [dashboardType]);
 
         var stats = useMemo(function () {
           var s = { totalAnswered: 0, totalCorrect: 0, areas: {}, wrongItems: [] };
@@ -1127,12 +1084,14 @@
               weekNumber: 0
             };
 
+            // Se já foi concluída (>= 70% de acerto), sai da fila e vai para Temas Revisados
             if (state.stage === 'completed') return;
 
             var effectiveStage = state.stage || 'day1';
             var scheduledDate = startOfDay(state.scheduledDate || addDays(item.errDate, 1));
             var isDay1Checked = !!(effectiveStage === 'day1' && state.firstDayCheckedAt);
 
+            // Se a 1ª revisão (+1d) foi marcada e já chegou o próximo dia útil, exibe a caixinha semanal (+7d da primeira)
             if (isDay1Checked) {
               var nextBizDay = getNextBusinessDay(state.firstDayCheckedAt);
               if (today.getTime() >= nextBizDay.getTime()) {
@@ -1176,32 +1135,17 @@
         var accuracyPct = stats.totalAnswered > 0 ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100) : 0;
 
         return e('div', { className: 'space-y-4 sm:space-y-6' },
-          e('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-3' },
-            e('div', { className: 'flex bg-slate-900 p-1.5 rounded-2xl w-full sm:w-fit border border-slate-800' },
-              e('button', {
-                onClick: function () { setDashboardType('provas'); },
-                className: 'flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold ' +
-                  (dashboardType === 'provas' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')
-              }, 'Dashboard UEPA Provas'),
-              e('button', {
-                onClick: function () { setDashboardType('simulados'); },
-                className: 'flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold ' +
-                  (dashboardType === 'simulados' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200')
-              }, 'Dashboard Simulados')
-            ),
-
-            dashboardType === 'provas' ? e('div', { className: 'flex items-center space-x-2 bg-slate-900 px-3.5 py-2 rounded-2xl border border-slate-800 w-full sm:w-auto' },
-              e('span', { className: 'text-xs text-slate-400 font-semibold shrink-0' }, 'Ano UEPA:'),
-              e('select', {
-                value: selectedUepaYear,
-                onChange: function (ev) { setSelectedUepaYear(ev.target.value); },
-                className: 'w-full sm:w-auto bg-slate-800 border border-slate-700 text-slate-100 text-xs sm:text-sm font-semibold rounded-xl px-3 py-1.5 outline-none'
-              },
-                uepaYearsList.map(function (yr) {
-                  return e('option', { key: yr, value: yr }, yr === 'Todos' ? 'Todos os Anos' : yr);
-                })
-              )
-            ) : null
+          e('div', { className: 'flex bg-slate-900 p-1.5 rounded-2xl w-full sm:w-fit border border-slate-800' },
+            e('button', {
+              onClick: function () { setDashboardType('provas'); },
+              className: 'flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold ' +
+                (dashboardType === 'provas' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')
+            }, 'Dashboard UEPA Provas'),
+            e('button', {
+              onClick: function () { setDashboardType('simulados'); },
+              className: 'flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold ' +
+                (dashboardType === 'simulados' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200')
+            }, 'Dashboard Simulados')
           ),
 
           e('div', {
@@ -1212,9 +1156,7 @@
               ' rounded-2xl p-5 sm:p-8 text-white shadow-xl border'
           },
             e('h1', { className: 'text-2xl sm:text-3xl font-bold mb-2' },
-              dashboardType === 'provas'
-                ? ('Painel de Desempenho: UEPA' + (selectedUepaYear !== 'Todos' ? ' (' + selectedUepaYear + ')' : ''))
-                : 'Painel de Desempenho: Simulados'
+              dashboardType === 'provas' ? 'Painel de Desempenho: UEPA' : 'Painel de Desempenho: Simulados'
             ),
             e('p', { className: 'text-blue-300/80 text-xs sm:text-base' },
               'Atualizado dinamicamente de acordo com o seu progresso pessoal de respostas.'
@@ -1739,7 +1681,6 @@
         var questions = props.questions;
         var progress = props.progress;
         var setProgress = props.setProgress;
-        var onResetQuestion = props.onResetQuestion;
         var notes = props.notes;
         var setNotes = props.setNotes;
         var titlePrefix = props.titlePrefix;
@@ -1819,15 +1760,6 @@
             next[currentQ.id] = tempOptionId;
             setProgress(next);
           }
-        }
-
-        function handleRedoQuestion() {
-          if (typeof onResetQuestion === 'function') {
-            onResetQuestion(currentQ.id);
-          }
-          setTempOptionId(null);
-          setEliminated({});
-          setAiExplanation('');
         }
 
         function toggleEliminate(ev, optId) {
@@ -1916,7 +1848,7 @@
                 )
               )
             ),
-            e('div', { className: 'flex flex-wrap items-center justify-between sm:justify-center gap-1.5 sm:space-x-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700' },
+            e('div', { className: 'flex items-center justify-between sm:justify-center space-x-1 sm:space-x-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700' },
               e('button', {
                 onClick: function () { jumpIndex(-10); },
                 disabled: currentIndex === 0,
@@ -1943,16 +1875,7 @@
                 disabled: currentIndex === currentQuestions.length - 1,
                 className: 'px-2.5 sm:px-3 py-1.5 min-h-[36px] hover:bg-slate-700 rounded-lg text-slate-300 font-bold text-xs sm:text-sm disabled:opacity-30',
                 title: 'Avançar 10 questões'
-              }, '>>'),
-              e('button', {
-                type: 'button',
-                onClick: handleRedoQuestion,
-                className: 'inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] bg-slate-900 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-lg font-semibold text-xs transition-all',
-                title: 'Restaurar apenas esta questão para responder novamente'
-              },
-                e(RotateCcwIcon, { className: 'w-3.5 h-3.5 shrink-0' }),
-                e('span', null, 'Refazer')
-              )
+              }, '>>')
             )
           ),
 
